@@ -1,35 +1,52 @@
-// speedometer_widget.dart — Premium analog speedometer dashboard widget.
+// speedometer_widget.dart — Premium ThrottleIQ analog cluster widget.
 //
-// ARCHITECTURE OVERVIEW
-// ─────────────────────
-// The widget uses two separate animation systems:
+// ═══════════════════════════════════════════════════════════════════════════
+// ANIMATION ARCHITECTURE — READ THIS FIRST
+// ═══════════════════════════════════════════════════════════════════════════
 //
-//   1. _bootController  → fires once on startup, sweeps the needle from 0→240→0
-//                         to simulate a real car cluster "ignition boot" animation.
+// Problem with the old approach:
+//   Two AnimationControllers (_bootController and _needleController) both
+//   wrote to _displaySpeed.  When _needleController initialized its listener
+//   it immediately fired with value 0.0 — overwriting the boot sweep value.
+//   This is why the ignition animation never worked correctly.
 //
-//   2. _needleController → drives ongoing smooth needle movement.
-//                          When the target speed changes, we Tween from the
-//                          current animated value to the new target.
-//                          This produces fluid, weighted, mechanical motion.
+// Solution — single-controller state machine:
+//   ONE AnimationController (_controller) drives the needle at all times.
+//   A _GaugePhase enum tracks what we're doing:
 //
-// Demo speed simulation:
-//   A Timer fires every 2 seconds and advances through the speed sequence.
-//   Rather than jumping instantly, the needle glides to the new target via
-//   a CurvedAnimation with a custom easeInOutCubic feel.
+//     • _GaugePhase.boot
+//         On app launch. TweenSequence animates 0 → 300 → 0.
+//         Simulates a Porsche cluster ignition sweep.
+//         The user cannot interact during this phase.
 //
-// Rendering:
-//   • GaugePainter  → draws the static gauge face (repaints with speed for glow)
-//   • NeedlePainter → draws the needle every animation frame
-//   • Annotation    → the center digital display (speed number + KM/H + mode)
+//     • _GaugePhase.idle
+//         After boot completes. Needle sits at 0. Buttons are enabled.
+//
+//     • _GaugePhase.demo
+//         Demo simulation running. Timer fires every 1.6 s, calls
+//         _animateTo() to glide the needle to the next speed target.
+//
+//   _animateTo() always:
+//     1. Cancels any in-progress animation on _controller
+//     2. Creates a new Tween from current _displaySpeed → newTarget
+//     3. Sets a proportional duration (faster for small deltas)
+//     4. Starts _controller.forward(from:0)
+//
+// Rendering — two RepaintBoundary layers:
+//   Layer 1: GaugePainter  — gauge face (repaints only when speed zone changes)
+//   Layer 2: NeedlePainter — needle (repaints every frame)
+//
+// ═══════════════════════════════════════════════════════════════════════════
 
 import 'dart:async';
-
 import 'package:flutter/material.dart';
-
 import '../core/app_colors.dart';
 import 'demo_control_button.dart';
 import 'gauge_painter.dart';
 import 'needle_painter.dart';
+
+// Phase enum — the gauge is always in exactly one of these states
+enum _GaugePhase { boot, idle, demo }
 
 class SpeedometerWidget extends StatefulWidget {
   const SpeedometerWidget({super.key});
@@ -39,149 +56,151 @@ class SpeedometerWidget extends StatefulWidget {
 }
 
 class _SpeedometerWidgetState extends State<SpeedometerWidget>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
 
-  // ─── ANIMATION CONTROLLERS ───────────────────────────────────────────────────
+  // ─── The ONE controller that drives everything ────────────────────────────
+  late AnimationController _controller;
 
-  // Boot sweep animation (runs once on initState)
-  late final AnimationController _bootController;
-  late final Animation<double>    _bootAnimation;
+  // The Tween changes on every _animateTo() call.
+  // We keep it as a field so we can always read the current value.
+  late Tween<double> _speedTween;
 
-  // Needle value animation (drives ongoing smooth needle movement)
-  late final AnimationController _needleController;
-  late Animation<double>         _needleAnimation;
+  // ─── Phase & demo state ───────────────────────────────────────────────────
+  _GaugePhase _phase     = _GaugePhase.boot;
+  Timer?      _demoTimer;
+  int         _demoIndex = 0;
+  double      _targetSpeed = 0;
 
-  // ─── SPEED STATE ─────────────────────────────────────────────────────────────
-
-  // The "visual" speed shown on needle — driven purely by _needleAnimation
-  double _displaySpeed = 0;
-
-  // The target speed we want the needle to reach
-  double _targetSpeed = 0;
-
-  // ─── DEMO STATE ──────────────────────────────────────────────────────────────
-
-  bool   _isDemoRunning = false;
-  Timer? _demoTimer;
-  int    _demoIndex     = 0;
-
-  // Speed sequence for the demo.
-  // Designed to feel like real acceleration → cruise → deceleration.
-  // Steps are close together for realistic incremental movement.
-  final List<double> _demoSpeeds = [
-    0, 15, 30, 48, 65, 82, 100, 118, 135, 150,
-    162, 175, 185, 192, 198, 202, 198, 188, 170,
-    150, 125, 100, 75, 55, 38, 22, 10, 0,
+  // Demo speed sequence — realistic acceleration/deceleration profile
+  // reaching 280 km/h peak to exercise the full 0-300 scale
+  static const List<double> _demoSpeeds = [
+    0, 18, 38, 60, 82, 105, 128, 150, 170,
+    190, 210, 235, 258, 272, 280, 276, 265,
+    248, 225, 198, 170, 140, 108, 78, 50, 25, 8, 0,
   ];
 
-  // Drive mode labels that change with speed ranges
-  String get _driveMode {
-    if (_displaySpeed < 60)  return 'ECO';
-    if (_displaySpeed < 120) return 'COMFORT';
-    if (_displaySpeed < 180) return 'SPORT';
-    return 'SPORT+';
-  }
-
-  // ─── LIFECYCLE ───────────────────────────────────────────────────────────────
+  // ─── Lifecycle ────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
-    _initAnimations();
-    _runBootSequence();
+
+    // Start with a zero-to-zero tween; the boot sequence overwrites it.
+    _speedTween = Tween<double>(begin: 0.0, end: 0.0);
+
+    _controller = AnimationController(vsync: this)
+      ..addListener(_onAnimationTick)
+      ..addStatusListener(_onAnimationStatus);
+
+    // Small delay so the first frame renders before we start sweeping.
+    // Without this, the tween has no physical canvas size yet.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _runBootSequence());
   }
 
-  void _initAnimations() {
-    // Boot sweep: full 0→240→0 in 3 seconds
-    _bootController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2800),
-    );
-
-    // Ease: fast rise to 240, then slow graceful return to 0
-    _bootAnimation = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween(begin: 0.0, end: 240.0)
-            .chain(CurveTween(curve: Curves.easeInOutCubic)),
-        weight: 45,
-      ),
-      TweenSequenceItem(
-        tween: Tween(begin: 240.0, end: 0.0)
-            .chain(CurveTween(curve: Curves.easeInOutSine)),
-        weight: 55,
-      ),
-    ]).animate(_bootController)
-      ..addListener(() {
-        if (mounted && !_isDemoRunning) {
-          setState(() => _displaySpeed = _bootAnimation.value);
-        }
-      });
-
-    // Needle animation controller — we drive it manually per target change
-    _needleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    );
-
-    // Initial animation stays at 0
-    _needleAnimation = Tween<double>(begin: 0.0, end: 0.0).animate(
-      CurvedAnimation(parent: _needleController, curve: Curves.easeInOutCubic),
-    )..addListener(() {
-      if (mounted) setState(() => _displaySpeed = _needleAnimation.value);
-    });
+  // Called every animation frame — just triggers a rebuild
+  void _onAnimationTick() {
+    if (mounted) setState(() {});
   }
 
-  // The boot sequence runs on app launch — mimics a real car cluster sweep
+  // Called when the controller finishes a forward run
+  void _onAnimationStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed && _phase == _GaugePhase.boot) {
+      // Boot sweep complete → transition to idle
+      if (mounted) {
+        setState(() {
+          _phase = _GaugePhase.idle;
+          // Snap tween to 0→0 so _displaySpeed reads as exactly 0
+          _speedTween = Tween<double>(begin: 0.0, end: 0.0);
+          _controller.value = 1.0; // evaluates to 0.0
+        });
+      }
+    }
+  }
+
+  // ─── Ignition Boot Sequence ───────────────────────────────────────────────
+  //
+  // Phase: boot
+  // Animation: 0 → 300 (fast) → 0 (graceful) in ~3.2 seconds.
+  // Exactly mirrors a Porsche Taycan cluster startup sweep.
+
   void _runBootSequence() {
-    _bootController.forward().then((_) {
-      // After the boot sweep, snap display speed to 0
-      if (mounted) setState(() => _displaySpeed = 0);
+    if (!mounted) return;
+
+    // TweenSequence on a SINGLE controller — no race condition possible
+    _speedTween = Tween<double>(begin: 0.0, end: 0.0); // will be overridden
+    _controller.stop();
+    _controller.duration = const Duration(milliseconds: 3200);
+
+    // We implement the two-segment sweep by animating 0→1 on the controller
+    // and using a TweenSequence to map that to 0→300→0.
+    final animation = TweenSequence<double>([
+      TweenSequenceItem(
+        // 0 → 300: easeInCubic (slow start, fast climb — like a real gauge)
+        tween: Tween(begin: 0.0, end: 300.0)
+            .chain(CurveTween(curve: Curves.easeInCubic)),
+        weight: 40,
+      ),
+      TweenSequenceItem(
+        // 300 → 0: easeOutQuint (fast start, very smooth deceleration)
+        tween: Tween(begin: 300.0, end: 0.0)
+            .chain(CurveTween(curve: Curves.easeOutQuint)),
+        weight: 60,
+      ),
+    ]).animate(_controller);
+
+    // Override _displaySpeed to use the sequence animation during boot
+    _controller.addListener(() {
+      if (_phase == _GaugePhase.boot && mounted) {
+        // During boot we read from the sequence directly
+        _bootDisplaySpeed = animation.value;
+        setState(() {});
+      }
     });
+
+    _controller.forward(from: 0);
   }
 
-  // ─── SPEED ANIMATION ─────────────────────────────────────────────────────────
+  // Separate boot speed value — avoids the tween evaluation during boot phase
+  double _bootDisplaySpeed = 0.0;
 
-  /// Smoothly animates the needle from its current visual position to [newSpeed].
-  /// Uses a weighted duration so large jumps animate proportionally longer.
+  // ─── Speed Getter — the single source of truth ────────────────────────────
+
+  double get currentSpeed {
+    if (_phase == _GaugePhase.boot) return _bootDisplaySpeed;
+    // For idle and demo: evaluate the tween at the current controller value
+    return _speedTween.transform(_controller.value);
+  }
+
+  // ─── Needle Animation ─────────────────────────────────────────────────────
+
+  /// Smoothly animate the needle from [currentSpeed] to [newSpeed].
+  /// Duration is proportional to the distance (200–1200 ms range).
   void _animateTo(double newSpeed) {
-    final double from = _displaySpeed;
+    final double from  = currentSpeed;
     final double delta = (newSpeed - from).abs();
+    final int    ms    = (delta / 300 * 1400 + 200).round().clamp(200, 1400);
 
-    // Duration scales with how far the needle has to travel (60–1200ms range)
-    // This makes fast jumps feel rapid and slow ones feel controlled.
-    final int durationMs = (delta / 240 * 1400 + 200).round().clamp(200, 1400);
-
-    _needleController.stop();
-    _needleController.duration = Duration(milliseconds: durationMs);
-
-    _needleAnimation = Tween<double>(begin: from, end: newSpeed).animate(
-      CurvedAnimation(parent: _needleController, curve: Curves.easeInOutCubic),
-    )..addListener(() {
-      if (mounted) setState(() => _displaySpeed = _needleAnimation.value);
-    });
-
-    _needleController.forward(from: 0);
+    _controller.stop();
+    _controller.duration = Duration(milliseconds: ms);
+    _speedTween = Tween<double>(begin: from, end: newSpeed);
+    _controller.forward(from: 0);
     _targetSpeed = newSpeed;
   }
 
-  // ─── DEMO CONTROL ────────────────────────────────────────────────────────────
+  // ─── Demo Control ─────────────────────────────────────────────────────────
 
   void _startDemo() {
-    if (_isDemoRunning) return;
+    if (_phase == _GaugePhase.demo) return;
 
-    // Cancel boot animation if still playing
-    _bootController.stop();
-
+    _controller.stop();
     setState(() {
-      _isDemoRunning = true;
-      _demoIndex     = 0;
+      _phase     = _GaugePhase.demo;
+      _demoIndex = 0;
     });
 
-    // Animate to first target immediately
     _animateTo(_demoSpeeds[_demoIndex]);
 
-    // Each step fires every 1.8 seconds — matches the animation duration range
-    _demoTimer = Timer.periodic(const Duration(milliseconds: 1800), (timer) {
+    _demoTimer = Timer.periodic(const Duration(milliseconds: 1600), (_) {
       _demoIndex++;
       if (_demoIndex >= _demoSpeeds.length) {
         _stopDemo();
@@ -194,117 +213,120 @@ class _SpeedometerWidgetState extends State<SpeedometerWidget>
   void _stopDemo() {
     _demoTimer?.cancel();
     _demoTimer = null;
-
     setState(() {
-      _isDemoRunning = false;
-      _demoIndex     = 0;
+      _phase     = _GaugePhase.idle;
+      _demoIndex = 0;
     });
-
-    _animateTo(0); // Glide needle back to zero
+    _animateTo(0);
   }
 
   @override
   void dispose() {
-    _bootController.dispose();
-    _needleController.dispose();
+    _controller.dispose();
     _demoTimer?.cancel();
     super.dispose();
   }
 
-  // ─── BUILD ───────────────────────────────────────────────────────────────────
+  // ─── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
+    final double speed = currentSpeed.clamp(0.0, 300.0);
+    final bool   isDemoRunning = _phase == _GaugePhase.demo;
+    final bool   isBooting     = _phase == _GaugePhase.boot;
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildStatusRow(),
-        const SizedBox(height: 20),
-        _buildGaugeStack(),
-        const SizedBox(height: 28),
-        _buildInfoRow(),
-        const SizedBox(height: 28),
-        _buildControlButtons(),
+        _buildStatusRow(isDemoRunning, isBooting),
+        const SizedBox(height: 18),
+        _buildGaugeStack(speed),
+        const SizedBox(height: 24),
+        _buildInfoRow(speed),
+        const SizedBox(height: 26),
+        _buildControlButtons(isDemoRunning, isBooting),
         const SizedBox(height: 20),
       ],
     );
   }
 
-  // ─── STATUS ROW ──────────────────────────────────────────────────────────────
+  // ─── Status Row ───────────────────────────────────────────────────────────
 
-  Widget _buildStatusRow() {
+  Widget _buildStatusRow(bool isDemoRunning, bool isBooting) {
+    final String label = isBooting
+        ? 'SYSTEM INITIALIZING'
+        : isDemoRunning
+            ? 'SIMULATION RUNNING'
+            : 'SYSTEM STANDBY';
+
+    final Color dotColor = isBooting
+        ? AppColors.driveModeComfort
+        : isDemoRunning
+            ? AppColors.statusActive
+            : AppColors.statusIdle;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Glowing indicator dot
         AnimatedContainer(
           duration: const Duration(milliseconds: 400),
-          width: 7,
-          height: 7,
+          width: 6,
+          height: 6,
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: _isDemoRunning
-                ? AppColors.statusActive
-                : AppColors.statusIdle,
-            boxShadow: _isDemoRunning
-                ? [BoxShadow(
-                    color: AppColors.glowRed,
-                    blurRadius: 10,
-                    spreadRadius: 3,
-                  )]
+            shape:    BoxShape.circle,
+            color:    dotColor,
+            boxShadow: (isDemoRunning || isBooting)
+                ? [BoxShadow(color: dotColor.withValues(alpha: 0.6),
+                    blurRadius: 8, spreadRadius: 2)]
                 : [],
           ),
         ),
-        const SizedBox(width: 9),
+        const SizedBox(width: 8),
         AnimatedDefaultTextStyle(
           duration: const Duration(milliseconds: 400),
           style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 3.0,
-            color: _isDemoRunning
-                ? AppColors.statusActive
-                : AppColors.statusIdle,
+            fontSize:      9,
+            fontWeight:    FontWeight.w700,
+            letterSpacing: 2.8,
+            color:         dotColor,
           ),
-          child: Text(_isDemoRunning ? 'SIMULATION RUNNING' : 'SYSTEM STANDBY'),
+          child: Text(label),
         ),
       ],
     );
   }
 
-  // ─── GAUGE STACK ─────────────────────────────────────────────────────────────
+  // ─── Gauge Stack ──────────────────────────────────────────────────────────
 
-  Widget _buildGaugeStack() {
+  Widget _buildGaugeStack(double speed) {
     return LayoutBuilder(builder: (context, constraints) {
-      // Gauge size: the smaller of 88% screen width or 380dp
-      final double gaugeSize = (constraints.maxWidth * 0.88).clamp(200.0, 380.0);
+      final double gaugeSize = (constraints.maxWidth * 0.90).clamp(220.0, 390.0);
 
       return Center(
         child: SizedBox(
-          width:  gaugeSize,
-          height: gaugeSize,
+          width: gaugeSize, height: gaugeSize,
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Layer 1: Gauge face (background, bezel, arcs, ticks, labels)
-              // Repaint only when speed changes (for glow color update)
+              // Layer 1: Gauge face — RepaintBoundary so glow-only repaints
+              // don't retrigger the needle layer and vice-versa
               RepaintBoundary(
                 child: CustomPaint(
                   size: Size(gaugeSize, gaugeSize),
-                  painter: GaugePainter(speed: _displaySpeed),
+                  painter: GaugePainter(speed: speed),
                 ),
               ),
 
-              // Layer 2: Needle — repaints every animation frame
+              // Layer 2: Needle — repaints every animation tick
               RepaintBoundary(
                 child: CustomPaint(
                   size: Size(gaugeSize, gaugeSize),
-                  painter: NeedlePainter(speed: _displaySpeed),
+                  painter: NeedlePainter(speed: speed),
                 ),
               ),
 
-              // Layer 3: Center digital display
-              _buildCenterDisplay(),
+              // Layer 3: Center digital readout
+              _buildCenterDisplay(speed),
             ],
           ),
         ),
@@ -312,129 +334,145 @@ class _SpeedometerWidgetState extends State<SpeedometerWidget>
     });
   }
 
-  // ─── CENTER DIGITAL DISPLAY ──────────────────────────────────────────────────
+  // ─── Center Display ───────────────────────────────────────────────────────
 
-  Widget _buildCenterDisplay() {
-    // Shift the display slightly below center so it sits naturally
-    // below the needle pivot in the "data zone" of the dial
+  Widget _buildCenterDisplay(double speed) {
+    final String mode = _driveMode(speed);
+    final Color  modeColor = _driveModeColor(speed);
+
     return Transform.translate(
-      offset: const Offset(0, 48),
+      offset: const Offset(0, 50),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Large speed number
+          // Speed number — zero-padded to 3 digits for stability
           Text(
-            _displaySpeed.round().toString().padLeft(3, '0'),
+            speed.round().toString().padLeft(3, '0'),
             style: const TextStyle(
-              fontSize: 52,
-              fontWeight: FontWeight.w300,
-              color: AppColors.speedDigit,
-              letterSpacing: -1.0,
-              height: 1.0,
-              fontFamily: 'RobotoMono',
+              fontSize:      50,
+              fontWeight:    FontWeight.w200, // ultra-thin luxury weight
+              color:         AppColors.speedDigit,
+              letterSpacing: -2.0,
+              height:        1.0,
             ),
           ),
 
-          const SizedBox(height: 2),
+          const SizedBox(height: 1),
 
-          // KM/H unit label
+          // KM/H label
           const Text(
             'KM/H',
             style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 4,
-              color: AppColors.speedUnit,
+              fontSize:      9,
+              fontWeight:    FontWeight.w600,
+              letterSpacing: 4.5,
+              color:         AppColors.speedUnit,
             ),
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 7),
 
-          // Drive mode badge — changes color and label with speed
+          // Drive mode chip — animates color change between modes
           AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 600),
+            duration: const Duration(milliseconds: 500),
             style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
+              fontSize:      8,
+              fontWeight:    FontWeight.w800,
               letterSpacing: 3.5,
-              color: _displaySpeed >= 120
-                  ? AppColors.driveMode
-                  : AppColors.speedUnit.withValues(alpha: 0.7),
+              color:         modeColor,
             ),
-            child: Text('— $_driveMode —'),
+            child: Text('— $mode —'),
           ),
         ],
       ),
     );
   }
 
-  // ─── INFO ROW ────────────────────────────────────────────────────────────────
+  String _driveMode(double speed) {
+    if (speed < 80)  return 'COMFORT';
+    if (speed < 160) return 'SPORT';
+    if (speed < 250) return 'SPORT+';
+    return 'TRACK';
+  }
 
-  Widget _buildInfoRow() {
-    // Small stat chips below the gauge — max speed reached and avg
-    // (static for now, will be populated from real data later)
+  Color _driveModeColor(double speed) {
+    if (speed < 80)  return AppColors.driveModeComfort;
+    if (speed < 160) return AppColors.driveModeSport;
+    return AppColors.driveMode;
+  }
+
+  // ─── Info Row ─────────────────────────────────────────────────────────────
+
+  Widget _buildInfoRow(double speed) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildInfoChip('MAX', '${_demoSpeeds.reduce((a, b) => a > b ? a : b).round()} KM/H'),
-        const SizedBox(width: 24),
-        _buildInfoChip('TARGET', '${_targetSpeed.round()} KM/H'),
-        const SizedBox(width: 24),
-        _buildInfoChip('MODE', _driveMode),
+        _chip('PEAK', '${_demoSpeeds.reduce((a, b) => a > b ? a : b).round()} KM/H'),
+        _divider(),
+        _chip('TARGET', '${_targetSpeed.round()} KM/H'),
+        _divider(),
+        _chip('MODE', _driveMode(speed)),
       ],
     );
   }
 
-  Widget _buildInfoChip(String label, String value) {
+  Widget _chip(String label, String value) {
     return Column(
       children: [
         Text(
           label,
           style: const TextStyle(
-            fontSize: 8,
-            fontWeight: FontWeight.w700,
+            fontSize:      7,
+            fontWeight:    FontWeight.w700,
             letterSpacing: 2,
-            color: AppColors.speedUnit,
+            color:         AppColors.speedUnit,
           ),
         ),
         const SizedBox(height: 3),
         Text(
           value,
           style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: AppColors.speedDigit,
-            letterSpacing: 0.5,
+            fontSize:      11,
+            fontWeight:    FontWeight.w500,
+            color:         AppColors.speedDigit,
+            letterSpacing: 0.4,
           ),
         ),
       ],
     );
   }
 
-  // ─── CONTROL BUTTONS ─────────────────────────────────────────────────────────
+  Widget _divider() => Container(
+    margin: const EdgeInsets.symmetric(horizontal: 18),
+    width: 1,
+    height: 22,
+    color: AppColors.btnInactiveBorder,
+  );
 
-  Widget _buildControlButtons() {
+  // ─── Control Buttons ──────────────────────────────────────────────────────
+
+  Widget _buildControlButtons(bool isDemoRunning, bool isBooting) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 44),
       child: Row(
         children: [
           Expanded(
             child: DemoControlButton(
-              label: 'START',
-              icon: Icons.play_arrow_rounded,
-              isActive: !_isDemoRunning,
+              label:       'START',
+              icon:        Icons.play_arrow_rounded,
+              isActive:    !isDemoRunning && !isBooting,
               activeColor: AppColors.btnActiveBorder,
-              onPressed: _isDemoRunning ? null : _startDemo,
+              onPressed:   (isDemoRunning || isBooting) ? null : _startDemo,
             ),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: DemoControlButton(
-              label: 'STOP',
-              icon: Icons.stop_rounded,
-              isActive: _isDemoRunning,
-              activeColor: const Color(0xFF444455),
-              onPressed: _isDemoRunning ? _stopDemo : null,
+              label:       'STOP',
+              icon:        Icons.stop_rounded,
+              isActive:    isDemoRunning,
+              activeColor: const Color(0xFF404050),
+              onPressed:   isDemoRunning ? _stopDemo : null,
             ),
           ),
         ],

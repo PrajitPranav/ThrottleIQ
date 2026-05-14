@@ -1,62 +1,66 @@
 // app_colors.dart — Central color palette for ThrottleIQ
 //
 // All colors used across the app are defined here.
-// This makes it easy to keep the design consistent and update the palette later.
+// This makes it easy to keep the design consistent and update the palette.
 
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Private constructor so this class can never be instantiated
   AppColors._();
 
-  // --- Background Layers ---
-  static const Color backgroundDeep    = Color(0xFF060608); // Deepest black (body bg)
-  static const Color backgroundSurface = Color(0xFF0D0D10); // Gauge face background
-  static const Color backgroundPanel   = Color(0xFF111116); // Info panels
+  // ─── Backgrounds ─────────────────────────────────────────────────────────────
+  static const Color backgroundDeep    = Color(0xFF050507);
+  static const Color backgroundSurface = Color(0xFF0B0B0F);
+  static const Color backgroundPanel   = Color(0xFF0F0F14);
 
-  // --- Gauge Chrome / Ring ---
-  static const Color chromeOuter       = Color(0xFF2A2A30); // Outer bezel ring dark
-  static const Color chromeInner       = Color(0xFF1A1A1F); // Inner ring
-  static const Color chromeMid         = Color(0xFF222228); // Middle chrome band
-  static const Color chromeScratch     = Color(0xFF3A3A42); // Brushed highlight
+  // ─── Chrome / Bezel ──────────────────────────────────────────────────────────
+  static const Color chromeOuter       = Color(0xFF252528);
+  static const Color chromeMid         = Color(0xFF1C1C20);
+  static const Color chromeInner       = Color(0xFF161618);
+  static const Color chromeScratch     = Color(0xFF3C3C44); // brushed highlight
+  static const Color chromeHighlight   = Color(0xFF5A5A64); // specular glint
 
-  // --- Tick Marks ---
-  static const Color tickMajor         = Color(0xFFCCCCCC); // Major tick (bright white)
-  static const Color tickMinor         = Color(0xFF555560); // Minor tick (dim)
-  static const Color tickRedZone       = Color(0xFFCC2200); // Major tick in red zone
+  // ─── Arc Track ───────────────────────────────────────────────────────────────
+  static const Color arcTrack          = Color(0xFF141418);
 
-  // --- Speed Arc Zones ---
-  static const Color arcGreen          = Color(0xFF1DB954); // 0–80: normal
-  static const Color arcAmber          = Color(0xFFFF8C00); // 80–160: sport
-  static const Color arcRed            = Color(0xFFCC2200); // 160–240: danger
+  // ─── Speed Zone Arcs ─────────────────────────────────────────────────────────
+  // Porsche-inspired: blue-white normal, amber sport, vivid red danger
+  static const Color arcNormal         = Color(0xFF4A9ECC); // 0–160: cool blue-white
+  static const Color arcSport          = Color(0xFFE08020); // 160–250: amber
+  static const Color arcDanger         = Color(0xFFCC1800); // 250–300: hard red
 
-  // --- Arc Track ---
-  static const Color arcTrack          = Color(0xFF1A1A22); // Inactive arc background
+  // ─── Tick Marks ──────────────────────────────────────────────────────────────
+  static const Color tickMajor         = Color(0xFFD8D8DC); // crisp white
+  static const Color tickMinor         = Color(0xFF484850); // dark grey
+  static const Color tickSport         = Color(0xFFE08020); // amber zone ticks
+  static const Color tickDanger        = Color(0xFFCC1800); // red zone ticks
 
-  // --- Needle ---
-  static const Color needleBody        = Color(0xFFE8E8EC); // Polished silver needle
-  static const Color needleTip         = Color(0xFFFF2200); // Red hot tip
-  static const Color needleKnob        = Color(0xFF1A1A1F); // Pivot cap
-  static const Color needleKnobRing    = Color(0xFFCC2200); // Red ring on pivot
-  static const Color needleTail        = Color(0xFF333340); // Tail counterweight
+  // ─── Needle ──────────────────────────────────────────────────────────────────
+  static const Color needleBase        = Color(0xFFFF6600); // base orange
+  static const Color needleTip         = Color(0xFFFF1100); // hot red tip
+  static const Color needleShaft       = Color(0xFFFF4400); // mid shaft
+  static const Color needleKnobCenter  = Color(0xFF0E0E12);
+  static const Color needleKnobRing    = Color(0xFFCC1800);
+  static const Color needleTail        = Color(0xFF2A2A32);
 
-  // --- Center Display Typography ---
-  static const Color speedDigit        = Color(0xFFF0F0F5); // Large speed number
-  static const Color speedUnit         = Color(0xFF666670); // "KM/H" label
-  static const Color driveMode         = Color(0xFFCC2200); // Drive mode text (SPORT)
+  // ─── Center Display ──────────────────────────────────────────────────────────
+  static const Color speedDigit        = Color(0xFFF4F4F8);
+  static const Color speedUnit         = Color(0xFF5A5A66);
+  static const Color driveMode         = Color(0xFFCC1800);
+  static const Color driveModeComfort  = Color(0xFF4A9ECC);
+  static const Color driveModeSport    = Color(0xFFE08020);
 
-  // --- UI Controls ---
-  static const Color btnActiveBorder   = Color(0xFFCC2200);
-  static const Color btnActiveGlow     = Color(0x33CC2200);
-  static const Color btnInactiveBorder = Color(0xFF222228);
-  static const Color btnInactiveFill   = Color(0xFF0F0F13);
-  static const Color btnText           = Color(0xFFAAAAAA);
+  // ─── UI Controls ─────────────────────────────────────────────────────────────
+  static const Color btnActiveBorder   = Color(0xFFCC1800);
+  static const Color btnInactiveBorder = Color(0xFF1E1E24);
+  static const Color btnInactiveFill   = Color(0xFF0C0C10);
 
-  // --- Status Indicator ---
-  static const Color statusActive      = Color(0xFFCC2200);
-  static const Color statusIdle        = Color(0xFF333340);
+  // ─── Status & Indicators ─────────────────────────────────────────────────────
+  static const Color statusActive      = Color(0xFFCC1800);
+  static const Color statusIdle        = Color(0xFF2C2C38);
 
-  // --- Ambient Glow ---
-  static const Color glowRed           = Color(0x44CC2200); // Subtle red ambient
-  static const Color glowAmber         = Color(0x33FF8C00); // Amber glow at high speed
+  // ─── Ambient Glow ────────────────────────────────────────────────────────────
+  static const Color glowRed           = Color(0x55CC1800);
+  static const Color glowAmber         = Color(0x44E08020);
+  static const Color glowBlue          = Color(0x334A9ECC);
 }
