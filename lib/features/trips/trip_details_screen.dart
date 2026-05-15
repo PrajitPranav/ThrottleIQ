@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../models/trip.dart';
+import '../../models/drive_mode.dart';
 import '../../services/settings_service.dart';
 import '../../services/trip_storage_service.dart';
 import '../../widgets/speed_distribution_widget.dart';
@@ -107,14 +108,35 @@ class TripDetailsScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          'SESSION ${_formatDate(trip.startTime)}',
-                          style: GoogleFonts.inter(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w200,
-                            color: Colors.white,
-                            letterSpacing: -1.0,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              'SESSION ${_formatDate(trip.startTime)}',
+                              style: GoogleFonts.inter(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w200,
+                                color: Colors.white,
+                                letterSpacing: -1.0,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: trip.driveMode.accent.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: trip.driveMode.accent.withValues(alpha: 0.3)),
+                              ),
+                              child: Text(
+                                trip.driveMode.label,
+                                style: GoogleFonts.inter(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w800,
+                                  color: trip.driveMode.accent,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -172,8 +194,8 @@ class TripDetailsScreen extends StatelessWidget {
                     children: [
                       _detailStat('AVG SPEED', settings.formatSpeed(trip.averageSpeedKmh), settings.speedUnit),
                       _detailStat('DURATION', '${trip.durationMinutes}', 'MIN'),
-                      _detailStat('START', _formatTime(trip.startTime), ''),
-                      _detailStat('END', _formatTime(trip.endTime), ''),
+                      _detailStat('MAX G-FORCE', trip.maxGForce.toStringAsFixed(2), 'G'),
+                      _detailStat('SCORE', trip.tripScore.toString(), 'PTS'),
                     ],
                   ),
                   const SizedBox(height: 60),

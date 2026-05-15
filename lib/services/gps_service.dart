@@ -6,6 +6,9 @@ import 'package:uuid/uuid.dart';
 import '../models/trip.dart';
 import 'trip_storage_service.dart';
 import 'garage_service.dart';
+import 'drive_mode_service.dart';
+import 'package:sensors_plus/sensors_plus.dart';
+import 'dart:math' as math;
 
 class GpsService extends ChangeNotifier {
   static final GpsService _instance = GpsService._internal();
@@ -28,6 +31,11 @@ class GpsService extends ChangeNotifier {
 
   final List<double> _speedSamples = [];
   List<double> get speedSamples => List.unmodifiable(_speedSamples);
+
+  double _maxGForce = 0.0;
+  double get maxGForce => _maxGForce;
+
+  StreamSubscription? _accelSub;
 
   double _topSpeed = 0.0;
   double get topSpeed => _topSpeed;
@@ -73,8 +81,11 @@ class GpsService extends ChangeNotifier {
     _totalDistanceKm = 0.0;
     _routePoints.clear();
     _speedSamples.clear();
+    _maxGForce = 0.0;
     _startTime = DateTime.now();
     notifyListeners();
+
+    _startGForceTracking();
 
     _positionStreamSub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
@@ -111,19 +122,26 @@ class GpsService extends ChangeNotifier {
   void stopTelemetry() {
     if (!_isActive) return;
     
+    _accelSub?.cancel();
+    
     // Save the trip before clearing
     if (_startTime != null && _routePoints.isNotEmpty) {
       final activeVehicleId = GarageService().activeVehicleId;
+      final currentMode = DriveModeService().currentMode;
       
-      // Calculate expected duration based on a baseline (e.g., 45 km/h urban/mixed)
-      // If distance is very small, expected might be same as actual
+      // Calculate expected duration based on mode (Sport/Sport+ is faster baseline)
+      double baselineSpeed = 45.0;
+      if (currentMode == DriveMode.sport) baselineSpeed = 55.0;
+      if (currentMode == DriveMode.sportPlus) baselineSpeed = 65.0;
+
       final expectedMins = _totalDistanceKm > 0 
-          ? (_totalDistanceKm / 45 * 60).round().clamp(1, 1440)
+          ? (_totalDistanceKm / baselineSpeed * 60).round().clamp(1, 1440)
           : 0;
 
       final trip = Trip(
         id: const Uuid().v4(),
         vehicleId: activeVehicleId,
+        driveMode: currentMode,
         startTime: _startTime!,
         endTime: DateTime.now(),
         distanceKm: _totalDistanceKm,
@@ -131,6 +149,7 @@ class GpsService extends ChangeNotifier {
         routePoints: List.from(_routePoints),
         speedSamples: List.from(_speedSamples),
         expectedDurationMinutes: expectedMins > 0 ? expectedMins : null,
+        maxGForce: _maxGForce,
       );
       TripStorageService().saveTrip(trip);
     }
@@ -140,6 +159,22 @@ class GpsService extends ChangeNotifier {
     _isActive = false;
     _currentSpeedKmh = 0.0;
     notifyListeners();
+  }
+
+  void _startGForceTracking() {
+    _accelSub = userAccelerometerEvents.listen((UserAccelerometerEvent event) {
+      if (!_isActive) return;
+      
+      // Calculate magnitude of acceleration (excluding gravity as we use userAccelerometerEvents)
+      // Result is in m/s^2. Convert to G (1G = 9.8 m/s^2)
+      final double magnitude = math.sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
+      final double gForce = magnitude / 9.8;
+      
+      if (gForce > _maxGForce) {
+        _maxGForce = gForce;
+        notifyListeners();
+      }
+    });
   }
 
   int get tripDurationMinutes {

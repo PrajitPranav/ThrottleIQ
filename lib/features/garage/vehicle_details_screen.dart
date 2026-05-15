@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/vehicle.dart';
+import '../../models/drive_mode.dart';
 import '../../services/garage_service.dart';
 import '../../services/settings_service.dart';
 
@@ -96,6 +97,8 @@ class VehicleDetailsScreen extends StatelessWidget {
           _statRow('TOP SPEED OVERALL', settings.formatSpeed(stats['topSpeedKmh']), settings.speedUnit),
           _divider(),
           _statRow('DRIVING DURATION', _formatDuration(stats['totalDurationMinutes']), ''),
+          _divider(),
+          _modeStatRow('FAVORITE DRIVE MODE', stats['favoriteMode']),
         ],
       ),
     );
@@ -129,5 +132,29 @@ class VehicleDetailsScreen extends StatelessWidget {
     final m = mins % 60;
     if (h > 0) return '${h}H ${m}M';
     return '${m}M';
+  }
+
+  Widget _modeStatRow(String label, DriveMode mode) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w500, color: const Color(0xFF8A8A94))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: mode.accent.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: mode.accent.withValues(alpha: 0.3)),
+            ),
+            child: Text(
+              mode.label,
+              style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: mode.accent),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

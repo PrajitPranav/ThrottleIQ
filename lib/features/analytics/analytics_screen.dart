@@ -3,6 +3,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../services/trip_storage_service.dart';
+import '../../models/trip.dart';
 
 class _ArcPainter extends CustomPainter {
   final double fraction;
@@ -127,78 +129,143 @@ class _BarChartPainter extends CustomPainter {
 class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({super.key});
 
-  static const double _overall   = 87;
-  static const double _smooth    = 82;
-  static const double _braking   = 91;
-  static const double _accel     = 79;
-  static const List<double> _weekly = [0.72, 0.85, 0.68, 0.91, 0.77, 0.88, 0.87];
-
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(children: [
-        const SizedBox(height: 24),
-        _header('DRIVING SCORE'),
-        const SizedBox(height: 20),
-        _Ring(label: 'OVERALL', score: _overall, color: const Color(0xFF5A7D65), size: 160, sw: 10),
-        const SizedBox(height: 12),
-        Text('Excellent Driver', style: GoogleFonts.inter(
-            fontSize: 12, fontWeight: FontWeight.w500, letterSpacing: 1.0, color: const Color(0xFF5A7D65))),
+    return ListenableBuilder(
+      listenable: TripStorageService(),
+      builder: (context, _) {
+        final trips = TripStorageService().trips;
+        
+        if (trips.isEmpty) {
+          return _emptyAnalytics();
+        }
 
-        const SizedBox(height: 36),
-        _header('PERFORMANCE BREAKDOWN'),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: const [
-              _Ring(label: 'SMOOTH', score: _smooth, color: Color(0xFF4F6B8F), size: 100, sw: 6),
-              _Ring(label: 'BRAKING', score: _braking, color: Color(0xFF5A7D65), size: 100, sw: 6),
-              _Ring(label: 'ACCEL', score: _accel, color: Color(0xFF9E653F), size: 100, sw: 6),
-            ],
-          ),
-        ),
+        // Calculate Overall Stats
+        final double avgScore = trips.fold(0.0, (sum, t) => sum + t.tripScore) / trips.length;
+        final double avgSmooth = trips.fold(0.0, (sum, t) => sum + t.smoothScore) / trips.length;
+        final double avgSpeedScore = trips.fold(0.0, (sum, t) => sum + t.speedScore) / trips.length;
+        final double avgEfficiency = trips.fold(0.0, (sum, t) => sum + t.efficiencyScore) / trips.length;
 
-        const SizedBox(height: 36),
-        _header('WEEKLY ACTIVITY'),
-        const SizedBox(height: 16),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Container(
-            height: 140,
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF101014),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF1E1E22)),
-            ),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 1000),
-              curve: Curves.easeOutCubic,
-              builder: (ctx, v, child) => CustomPaint(
-                painter: _BarChartPainter(values: _weekly, fraction: v),
+        // Calculate Weekly Activity (Last 7 days)
+        final now = DateTime.now();
+        final List<double> weeklyData = List.filled(7, 0.0);
+        for (var i = 0; i < 7; i++) {
+          final day = now.subtract(Duration(days: 6 - i));
+          final dayTrips = trips.where((t) => 
+            t.startTime.year == day.year && 
+            t.startTime.month == day.month && 
+            t.startTime.day == day.day
+          );
+          if (dayTrips.isNotEmpty) {
+            weeklyData[i] = dayTrips.fold(0.0, (sum, t) => sum + t.distanceKm) / 50.0; // Normalize to 50km max for bar height
+          }
+        }
+
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(children: [
+            const SizedBox(height: 24),
+            _header('DRIVING SCORE'),
+            const SizedBox(height: 20),
+            _Ring(label: 'OVERALL', score: avgScore, color: const Color(0xFF5A7D65), size: 160, sw: 10),
+            const SizedBox(height: 12),
+            Text(_getRankText(avgScore), style: GoogleFonts.inter(
+                fontSize: 12, fontWeight: FontWeight.w500, letterSpacing: 1.0, color: const Color(0xFF5A7D65))),
+
+            const SizedBox(height: 36),
+            _header('PERFORMANCE BREAKDOWN'),
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _Ring(label: 'SMOOTH', score: avgSmooth, color: const Color(0xFF4F6B8F), size: 100, sw: 6),
+                  _Ring(label: 'SPEED', score: avgSpeedScore, color: const Color(0xFF5A7D65), size: 100, sw: 6),
+                  _Ring(label: 'EFFICIENCY', score: avgEfficiency, color: const Color(0xFF9E653F), size: 100, sw: 6),
+                ],
               ),
             ),
-          ),
-        ),
 
-        const SizedBox(height: 36),
-        _header('DRIVING INSIGHTS'),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(children: const [
-            _InsightCard(icon: Icons.trending_up_rounded, title: 'Acceleration Profile', body: 'Clean exit zones. Avg 0–100 in 5.2s across 14 sessions.', color: Color(0xFF4F6B8F)),
-            _InsightCard(icon: Icons.directions_car_rounded, title: 'Braking Behavior', body: 'Smooth late-braking detected. 91% precision on corner entry.', color: Color(0xFF5A7D65)),
-            _InsightCard(icon: Icons.warning_amber_rounded, title: 'Oversteer Events', body: '3 minor events this week. Consider reducing entry speed.', color: Color(0xFF9E653F)),
+            const SizedBox(height: 36),
+            _header('WEEKLY ACTIVITY'),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Container(
+                height: 140,
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF101014),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF1E1E22)),
+                ),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: const Duration(milliseconds: 1000),
+                  curve: Curves.easeOutCubic,
+                  builder: (ctx, v, child) => CustomPaint(
+                    painter: _BarChartPainter(values: weeklyData, fraction: v),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 36),
+            _header('DRIVING INSIGHTS'),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(children: _generateInsights(trips)),
+            ),
+            const SizedBox(height: 32),
           ]),
-        ),
-        const SizedBox(height: 32),
-      ]),
+        );
+      },
     );
+  }
+
+  Widget _emptyAnalytics() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.analytics_outlined, size: 80, color: Color(0xFF16161A)),
+          const SizedBox(height: 24),
+          Text(
+            'NO DATA YET',
+            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 2.0, color: const Color(0xFF5A5A64)),
+          ),
+          const SizedBox(height: 12),
+          Text('Complete a few trips to see your driving analysis', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF3A3A44))),
+        ],
+      ),
+    );
+  }
+
+  String _getRankText(double score) {
+    if (score > 90) return 'ELITE DRIVER';
+    if (score > 80) return 'EXPERT DRIVER';
+    if (score > 60) return 'SKILLED DRIVER';
+    return 'NOVICE DRIVER';
+  }
+
+  List<Widget> _generateInsights(List<Trip> trips) {
+    final List<Widget> insights = [];
+    final double avgMaxG = trips.fold(0.0, (sum, t) => sum + t.maxGForce) / trips.length;
+    
+    if (avgMaxG > 1.2) {
+      insights.add(const _InsightCard(icon: Icons.warning_amber_rounded, title: 'High G-Force Detected', body: 'Your cornering forces are quite high. Consider smoother entries to maintain tire grip.', color: Color(0xFF8F3232)));
+    } else {
+      insights.add(const _InsightCard(icon: Icons.check_circle_outline_rounded, title: 'Excellent Smoothness', body: 'Consistent G-Force management. Your driving style minimizes vehicle wear.', color: Color(0xFF5A7D65)));
+    }
+
+    final double avgTopSpeed = trips.fold(0.0, (sum, t) => sum + t.topSpeedKmh) / trips.length;
+    if (avgTopSpeed > 100) {
+      insights.add(const _InsightCard(icon: Icons.speed_rounded, title: 'Speed Profile', body: 'High average top speeds recorded. Ensure adherence to local track limits.', color: Color(0xFF9E653F)));
+    }
+
+    return insights;
   }
 
   Widget _header(String text) => Padding(

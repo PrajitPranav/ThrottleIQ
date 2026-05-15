@@ -27,15 +27,21 @@ class ProfileScreen extends StatelessWidget {
         final int totalMinutes = trips.fold(0, (sum, t) => sum + t.durationMinutes);
         final String timeStr = "${(totalMinutes / 60).toStringAsFixed(1)} HR";
 
+        // Dynamic XP Logic: 10 XP per KM
+        final double totalXp = totalDistKm * 10;
+        final int currentLevel = (totalXp / 5000).floor() + 1;
+        final double progressInLevel = (totalXp % 5000) / 5000;
+        final String xpStatus = "${(totalXp % 5000).round()} / 5000 XP";
+
         return SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: Column(children: [
             const SizedBox(height: 32),
-            _avatarSection(context, profile),
+            _avatarSection(context, profile, currentLevel),
             const SizedBox(height: 32),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: _xpSection(),
+              child: _xpSection(currentLevel, xpStatus, progressInLevel),
             ),
             const SizedBox(height: 32),
             _header('DRIVER STATS'),
@@ -151,7 +157,7 @@ class ProfileScreen extends StatelessWidget {
     ('Iron Grip',      Icons.speed_rounded,          Color(0xFF4F6B8F),  'Maintained 60+ trips'),
   ];
 
-  Widget _avatarSection(BuildContext context, ProfileService profile) {
+  Widget _avatarSection(BuildContext context, ProfileService profile, int level) {
     return Column(children: [
       GestureDetector(
         onTap: () => _pickImage(profile),
@@ -174,10 +180,17 @@ class ProfileScreen extends StatelessWidget {
           fontSize: 20, fontWeight: FontWeight.w500, letterSpacing: -0.5,
           color: Colors.white)),
       const SizedBox(height: 6),
-      Text('LVL 7  •  EXPERT DRIVER',
+      Text('LVL $level  •  ${_getRankTitle(level)}',
         style: GoogleFonts.inter(fontSize: 9, letterSpacing: 1.5,
             fontWeight: FontWeight.w600, color: const Color(0xFF5A5A64))),
     ]);
+  }
+
+  String _getRankTitle(int level) {
+    if (level > 20) return 'LEGENDARY DRIVER';
+    if (level > 10) return 'EXPERT DRIVER';
+    if (level > 5) return 'SKILLED DRIVER';
+    return 'NOVICE DRIVER';
   }
 
   Future<void> _pickImage(ProfileService profile) async {
@@ -321,7 +334,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _xpSection() {
+  Widget _xpSection(int level, String status, double progress) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(color: const Color(0xFF101014),
@@ -329,14 +342,14 @@ class ProfileScreen extends StatelessWidget {
         border: Border.all(color: const Color(0xFF1E1E22))),
       child: Column(children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('LEVEL 7', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w600,
+          Text('LEVEL $level', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w600,
               letterSpacing: 2.0, color: Colors.white)),
-          Text('3,420 / 5,000 XP', style: GoogleFonts.inter(fontSize: 9,
+          Text(status, style: GoogleFonts.inter(fontSize: 9,
               color: const Color(0xFF7A7A85))),
         ]),
         const SizedBox(height: 12),
         TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.0, end: 0.684),
+          tween: Tween(begin: 0.0, end: progress),
           duration: const Duration(milliseconds: 1000),
           curve: Curves.easeOutCubic,
           builder: (ctx, v, child) => ClipRRect(

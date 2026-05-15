@@ -12,6 +12,8 @@ import '../../features/garage/garage_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/map/map_screen.dart';
 
+import '../../services/drive_mode_service.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -19,44 +21,51 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  DriveMode _driveMode = DriveMode.sport;
-  int       _tabIndex  = 0;
+  int _tabIndex = 0;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF050507),
-      body: AnimatedDashboardBg(
-        driveMode: _driveMode,
-        child: SafeArea(
-          child: Column(children: [
-            HudStrip(driveMode: _driveMode),
-            Expanded(
-              child: IndexedStack(
-                index: _tabIndex,
-                children: [
-                  DashboardScreen(
-                    driveMode: _driveMode,
-                    onDriveModeChanged: (m) => setState(() => _driveMode = m),
+    return ListenableBuilder(
+      listenable: DriveModeService(),
+      builder: (context, _) {
+        final driveModeService = DriveModeService();
+        final driveMode = driveModeService.currentMode;
+
+        return Scaffold(
+          backgroundColor: const Color(0xFF050507),
+          body: AnimatedDashboardBg(
+            driveMode: driveMode,
+            child: SafeArea(
+              child: Column(children: [
+                HudStrip(driveMode: driveMode),
+                Expanded(
+                  child: IndexedStack(
+                    index: _tabIndex,
+                    children: [
+                      DashboardScreen(
+                        driveMode: driveMode,
+                        onDriveModeChanged: (m) => driveModeService.setMode(m),
+                      ),
+                      MapScreen(driveMode: driveMode),
+                      const TripsScreen(),
+                      const AnalyticsScreen(),
+                      const GarageScreen(),
+                      const ProfileScreen(),
+                    ],
                   ),
-                  MapScreen(driveMode: _driveMode),
-                  const TripsScreen(),
-                  const AnalyticsScreen(),
-                  const GarageScreen(),
-                  const ProfileScreen(),
-                ],
-              ),
+                ),
+              ]),
             ),
-          ]),
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: BottomNavBar(
-          selectedIndex: _tabIndex,
-          driveMode:     _driveMode,
-          onTap: (i) => setState(() => _tabIndex = i),
-        ),
-      ),
+          ),
+          bottomNavigationBar: SafeArea(
+            child: BottomNavBar(
+              selectedIndex: _tabIndex,
+              driveMode:     driveMode,
+              onTap: (i) => setState(() => _tabIndex = i),
+            ),
+          ),
+        );
+      }
     );
   }
 }

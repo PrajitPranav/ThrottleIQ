@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/vehicle.dart';
 import '../models/trip.dart';
+import '../models/drive_mode.dart';
 import 'trip_storage_service.dart';
 
 class GarageService extends ChangeNotifier {
@@ -89,12 +90,22 @@ class GarageService extends ChangeNotifier {
 
     double avgSpeed = totalDuration > 0 ? (totalDist / (totalDuration / 60.0)) : 0.0;
 
+    // Calculate favorite mode
+    final Map<DriveMode, int> modeCounts = {};
+    for (var trip in trips) {
+      modeCounts[trip.driveMode] = (modeCounts[trip.driveMode] ?? 0) + 1;
+    }
+    final favoriteMode = modeCounts.entries.isEmpty 
+        ? DriveMode.sport 
+        : modeCounts.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+
     return {
       'totalTrips': trips.length,
       'totalDistanceKm': totalDist,
       'avgSpeedKmh': avgSpeed,
       'topSpeedKmh': topSpeed,
       'totalDurationMinutes': totalDuration,
+      'favoriteMode': favoriteMode,
     };
   }
 }

@@ -76,9 +76,9 @@ class DashboardScreen extends StatelessWidget {
                         )),
                         const SizedBox(width: 12),
                         Expanded(child: TelemetryCard(
-                          label: 'TRIP TIME', 
-                          value: gps.tripDurationMinutes.toString(), 
-                          unit: 'MIN'
+                          label: 'G-FORCE', 
+                          value: gps.maxGForce.toStringAsFixed(2), 
+                          unit: 'G'
                         )),
                       ],
                     ),
