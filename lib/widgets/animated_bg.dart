@@ -1,10 +1,9 @@
-// animated_bg.dart — Full-screen breathing ambient background.
-// A slow AnimationController drives a sin-wave opacity pulse on two
-// RadialGradient overlays whose color tracks the active DriveMode.
+// animated_bg.dart — Subtle, minimalist dark background.
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../models/drive_mode.dart';
+import '../core/app_colors.dart';
 
 class AnimatedDashboardBg extends StatefulWidget {
   final DriveMode driveMode;
@@ -27,9 +26,10 @@ class _AnimatedDashboardBgState extends State<AnimatedDashboardBg>
   @override
   void initState() {
     super.initState();
+    // Very slow, subtle brightness pulse to feel alive but not distracting
     _breath = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 7),
+      duration: const Duration(seconds: 12),
     )..repeat(reverse: true);
   }
 
@@ -44,29 +44,28 @@ class _AnimatedDashboardBgState extends State<AnimatedDashboardBg>
     return AnimatedBuilder(
       animation: _breath,
       builder: (context, child) {
-        // Soft sine curve → 0.0 to 1.0 breathing
         final double t = (math.sin(_breath.value * math.pi));
-        final Color modeColor = widget.driveMode.bgOverlay;
+        final Color overlay = widget.driveMode.bgOverlay;
 
         return Stack(
           fit: StackFit.expand,
           children: [
-            // Base: deep matte black
-            const ColoredBox(color: Color(0xFF050507)),
+            // Deep matte base
+            const ColoredBox(color: AppColors.backgroundDeep),
 
-            // Top ambient glow — drive mode color, breathes slowly
+            // Top subtle gradient
             Positioned(
-              top: -60,
+              top: -100,
               left: 0,
               right: 0,
               child: Container(
-                height: 320,
+                height: 400,
                 decoration: BoxDecoration(
                   gradient: RadialGradient(
-                    center: const Alignment(0.0, -0.5),
-                    radius: 0.9,
+                    center: const Alignment(0.0, -0.6),
+                    radius: 1.0,
                     colors: [
-                      Color.lerp(modeColor, modeColor.withValues(alpha: 0), 0.2 + t * 0.3)!,
+                      overlay.withValues(alpha: overlay.a * (0.8 + t * 0.2)),
                       Colors.transparent,
                     ],
                   ),
@@ -74,26 +73,7 @@ class _AnimatedDashboardBgState extends State<AnimatedDashboardBg>
               ),
             ),
 
-            // Bottom-right secondary glow — very subtle graphite
-            Positioned(
-              bottom: -40,
-              right: -40,
-              child: Container(
-                width: 280,
-                height: 280,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      const Color(0xFF1A1A20).withValues(alpha: 0.5 + t * 0.2),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // Foreground content
+            // Content
             child!,
           ],
         );

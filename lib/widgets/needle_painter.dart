@@ -1,242 +1,147 @@
-// needle_painter.dart — Premium razor-sharp analog needle for ThrottleIQ.
-//
-// Design language: Porsche + BMW M hybrid
-//
-// Features:
-//   • Vivid orange-red gradient body (wide at hub, razor-thin at tip)
-//   • Luminous hot-red glowing tip
-//   • Subtle motion-blur shadow behind the needle
-//   • Deep machined pivot knob with specular micro-dot
-//   • Weighted dark counterweight tail
-//
-// The needle angle uses the SAME non-uniform speedToAngle() mapping as
-// GaugePainter so needle and scale are always in perfect alignment.
+// needle_painter.dart — Precision mechanical needle.
 
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../core/app_colors.dart';
-import 'gauge_painter.dart'; // for speedToAngle()
+import '../models/drive_mode.dart';
+import 'gauge_painter.dart';
 
 class NeedlePainter extends CustomPainter {
-  // Current speed value (0–300)
   final double speed;
+  final DriveMode driveMode;
 
-  const NeedlePainter({required this.speed});
+  const NeedlePainter({required this.speed, required this.driveMode});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final double cx = size.width  / 2;
-    final double cy = size.height / 2;
-    final double r  = math.min(cx, cy);
+    final Offset center = Offset(size.width / 2, size.height / 2);
+    final double radius = size.width / 2;
+    final double angle = GaugePainter.speedToAngle(speed);
 
-    // Get the needle angle using the SAME mapping as the gauge face
-    final double angle = GaugePainter.speedToAngle(speed.clamp(0, 300));
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(angle);
 
-    // Primary direction of the needle (toward the scale)
-    final double ndx = math.cos(angle);
-    final double ndy = math.sin(angle);
+    _drawNeedleShadow(canvas, radius);
+    _drawSharpNeedle(canvas, radius);
+    _drawMetallicHub(canvas, radius);
 
-    // Perpendicular direction (for needle width)
-    final double px = -ndy;
-    final double py =  ndx;
-
-    // Draw order: shadow first, then body, then glow tip, then knob on top
-    _drawShadow(canvas, cx, cy, r, ndx, ndy, px, py, angle);
-    _drawNeedleBody(canvas, cx, cy, r, ndx, ndy, px, py);
-    _drawGlowTip(canvas, cx, cy, r, ndx, ndy);
-    _drawTail(canvas, cx, cy, r, ndx, ndy, px, py);
-    _drawKnob(canvas, cx, cy, r);
+    canvas.restore();
   }
 
-  // ─── SHADOW (motion blur feel) ─────────────────────────────────────────────
+  void _drawNeedleShadow(Canvas canvas, double radius) {
+    final double length = radius * 0.86;
+    final double baseWidth = radius * 0.03;
+    final double tailLength = radius * 0.18;
 
-  void _drawShadow(
-    Canvas canvas, double cx, double cy, double r,
-    double ndx, double ndy, double px, double py, double angle,
-  ) {
-    // A slightly offset, blurred, wider version of the needle body
-    // painted at low opacity — creates the illusion of motion depth.
-    final double tipR  = r * 0.79;
-    final double baseR = r * 0.10;
-
-    final Offset tip  = Offset(cx + ndx * tipR,  cy + ndy * tipR);
-    final Offset base = Offset(cx + ndx * baseR, cy + ndy * baseR);
-
-    final double baseHalf = r * 0.022;
-    final double tipHalf  = r * 0.003;
-
-    final Path shadowPath = Path()
-      ..moveTo(tip.dx  + px * tipHalf,  tip.dy  + py * tipHalf)
-      ..lineTo(tip.dx  - px * tipHalf,  tip.dy  - py * tipHalf)
-      ..lineTo(base.dx - px * baseHalf, base.dy - py * baseHalf)
-      ..lineTo(base.dx + px * baseHalf, base.dy + py * baseHalf)
+    final Path path = Path()
+      ..moveTo(0, -baseWidth / 2)
+      ..lineTo(length, 0)
+      ..lineTo(0, baseWidth / 2)
+      ..lineTo(-tailLength, baseWidth * 0.3)
+      ..lineTo(-tailLength, -baseWidth * 0.3)
       ..close();
+
+    // Tight, realistic drop shadow indicating physical depth
+    canvas.drawPath(
+      path.shift(const Offset(-1.5, 3.0)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.5)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+  }
+
+  void _drawSharpNeedle(Canvas canvas, double radius) {
+    final double length = radius * 0.86; // Extends slightly into the track
+    final double baseWidth = radius * 0.03;
+    final double tailLength = radius * 0.18;
+
+    final Path path = Path()
+      ..moveTo(0, -baseWidth / 2)
+      ..lineTo(length, 0) // Pinpoint tip
+      ..lineTo(0, baseWidth / 2)
+      ..lineTo(-tailLength, baseWidth * 0.3)
+      ..lineTo(-tailLength, -baseWidth * 0.3)
+      ..close();
+
+    // Blade gradient based on drive mode
+    List<Color> gradientColors;
+    if (driveMode == DriveMode.eco) {
+      gradientColors = [const Color(0xFF4A6B53), const Color(0xFF86B896)];
+    } else if (driveMode == DriveMode.comfort) {
+      gradientColors = [const Color(0xFF5A5A64), const Color(0xFFB5B5BE)];
+    } else if (driveMode == DriveMode.sport) {
+      gradientColors = [const Color(0xFF9E653F), const Color(0xFFD49A6A)];
+    } else {
+      gradientColors = [const Color(0xFF8F3232), const Color(0xFFD64428)]; // Sport+
+    }
 
     canvas.drawPath(
-      shadowPath,
+      path,
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.40)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
-    );
-  }
-
-  // ─── NEEDLE BODY ───────────────────────────────────────────────────────────
-
-  void _drawNeedleBody(
-    Canvas canvas, double cx, double cy, double r,
-    double ndx, double ndy, double px, double py,
-  ) {
-    final double tipR  = r * 0.79;  // tip distance from center
-    final double baseR = r * 0.10;  // how far back from center the needle widens
-
-    final Offset tip  = Offset(cx + ndx * tipR,  cy + ndy * tipR);
-    final Offset base = Offset(cx + ndx * baseR, cy + ndy * baseR);
-
-    // Tapered shape — wide at base, knife-edge at tip
-    final double baseHalf = r * 0.016;
-    final double tipHalf  = r * 0.0015;
-
-    final Path bodyPath = Path()
-      ..moveTo(tip.dx  + px * tipHalf,  tip.dy  + py * tipHalf)
-      ..lineTo(tip.dx  - px * tipHalf,  tip.dy  - py * tipHalf)
-      ..lineTo(base.dx - px * baseHalf, base.dy - py * baseHalf)
-      ..lineTo(base.dx + px * baseHalf, base.dy + py * baseHalf)
-      ..close();
-
-    // Orange-red gradient along the needle length
-    // Creates the premium heated-metal look
-    final Paint bodyPaint = Paint()
-      ..shader = LinearGradient(
-        // Gradient runs from base (darker) to tip (brighter red)
-        begin: Alignment(
-          (cx + ndx * baseR - cx) / r,
-          (cy + ndy * baseR - cy) / r,
-        ),
-        end: Alignment(
-          (cx + ndx * tipR - cx) / r,
-          (cy + ndy * tipR - cy) / r,
-        ),
-        colors: const [
-          Color(0xFFFF5500), // base — warm orange
-          Color(0xFFFF3300), // mid — orange-red
-          Color(0xFFFF1100), // tip — vivid red
-        ],
-        stops: const [0.0, 0.6, 1.0],
-      ).createShader(
-        Rect.fromPoints(base, tip),
-      );
-
-    canvas.drawPath(bodyPath, bodyPaint);
-
-    // Thin bright highlight line along the center-top of the needle
-    // Simulates the specular edge of a polished metal needle
-    canvas.drawLine(
-      Offset(base.dx + px * (baseHalf * 0.25), base.dy + py * (baseHalf * 0.25)),
-      Offset(tip.dx  + px * tipHalf,           tip.dy  + py * tipHalf),
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.18)
-        ..strokeWidth = 0.8
-        ..strokeCap = StrokeCap.round,
-    );
-  }
-
-  // ─── GLOWING TIP ───────────────────────────────────────────────────────────
-
-  void _drawGlowTip(
-    Canvas canvas, double cx, double cy, double r,
-    double ndx, double ndy,
-  ) {
-    // A small blurred circle at the very tip of the needle — the "hot point"
-    final double tipR = r * 0.79;
-    final Offset tipPos = Offset(cx + ndx * tipR, cy + ndy * tipR);
-
-    canvas.drawCircle(
-      tipPos, r * 0.018,
-      Paint()
-        ..color = AppColors.needleTip.withValues(alpha: 0.7)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.025),
+        ..shader = LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: gradientColors,
+        ).createShader(Rect.fromLTRB(-tailLength, -baseWidth, length, baseWidth)),
     );
 
-    canvas.drawCircle(
-      tipPos, r * 0.006,
-      Paint()..color = Colors.white.withValues(alpha: 0.85),
-    );
-  }
+    // Sharp specular highlight edge (simulates gloss/bevel)
+    final Path highlight = Path()
+      ..moveTo(-tailLength, -baseWidth * 0.3)
+      ..lineTo(0, -baseWidth / 2)
+      ..lineTo(length, 0);
 
-  // ─── COUNTERWEIGHT TAIL ────────────────────────────────────────────────────
-
-  void _drawTail(
-    Canvas canvas, double cx, double cy, double r,
-    double ndx, double ndy, double px, double py,
-  ) {
-    final double tailLen  = r * 0.14;
-    final double tailHalf = r * 0.020;
-
-    final Offset tailEnd  = Offset(cx - ndx * tailLen, cy - ndy * tailLen);
-    final Offset tailBase = Offset(cx + ndx * r * 0.03, cy + ndy * r * 0.03);
-
-    final Path tailPath = Path()
-      ..moveTo(tailEnd.dx  + px * (tailHalf * 0.3), tailEnd.dy  + py * (tailHalf * 0.3))
-      ..lineTo(tailEnd.dx  - px * (tailHalf * 0.3), tailEnd.dy  - py * (tailHalf * 0.3))
-      ..lineTo(tailBase.dx - px * tailHalf,          tailBase.dy - py * tailHalf)
-      ..lineTo(tailBase.dx + px * tailHalf,          tailBase.dy + py * tailHalf)
-      ..close();
-
-    canvas.drawPath(tailPath, Paint()..color = AppColors.needleTail);
-  }
-
-  // ─── PIVOT KNOB ────────────────────────────────────────────────────────────
-
-  void _drawKnob(Canvas canvas, double cx, double cy, double r) {
-    final double knobR = r * 0.062;
-
-    // Drop shadow
-    canvas.drawCircle(
-      Offset(cx, cy), knobR * 1.7,
+    canvas.drawPath(
+      highlight,
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.55)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
-    );
-
-    // Dark machined base with subtle radial gradient
-    canvas.drawCircle(
-      Offset(cx, cy), knobR,
-      Paint()
-        ..shader = RadialGradient(
-          center: const Alignment(-0.35, -0.4),
-          radius: 0.95,
-          colors: const [
-            Color(0xFF323238),
-            Color(0xFF0C0C10),
-          ],
-        ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: knobR)),
-    );
-
-    // Red accent ring — thin and precise
-    canvas.drawCircle(
-      Offset(cx, cy), knobR,
-      Paint()
-        ..color = AppColors.needleKnobRing
+        ..color = Colors.white.withValues(alpha: 0.4)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = r * 0.011,
+        ..strokeWidth = 0.5,
+    );
+  }
+
+  void _drawMetallicHub(Canvas canvas, double radius) {
+    final double hubOuter = radius * 0.09;
+    final double hubMid = radius * 0.07;
+    final double hubInner = radius * 0.03;
+
+    // Base housing (dark)
+    canvas.drawCircle(
+      Offset.zero,
+      hubOuter,
+      Paint()..color = const Color(0xFF0A0A0C),
     );
 
-    // Inner darker ring
+    // Milled aluminum ring
     canvas.drawCircle(
-      Offset(cx, cy), knobR * 0.58,
+      Offset.zero,
+      hubMid,
       Paint()
-        ..color = const Color(0xFF080810)
-        ..style = PaintingStyle.fill,
+        ..shader = const SweepGradient(
+          colors: [Color(0xFF8A8A94), Color(0xFFE8E8EC), Color(0xFF8A8A94)],
+          stops: [0.0, 0.5, 1.0],
+        ).createShader(Rect.fromCircle(center: Offset.zero, radius: hubMid))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5,
     );
 
-    // Specular micro-dot highlight
+    // Center cap (matte black)
     canvas.drawCircle(
-      Offset(cx - knobR * 0.30, cy - knobR * 0.32),
-      knobR * 0.18,
-      Paint()..color = Colors.white.withValues(alpha: 0.25),
+      Offset.zero,
+      hubInner,
+      Paint()..color = const Color(0xFF141418),
+    );
+    
+    // Subtle highlight on cap
+    canvas.drawCircle(
+      Offset.zero,
+      hubInner,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.1)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.5,
     );
   }
 
   @override
-  bool shouldRepaint(NeedlePainter old) => old.speed != speed;
+  bool shouldRepaint(NeedlePainter oldDelegate) => oldDelegate.speed != speed || oldDelegate.driveMode != driveMode;
 }

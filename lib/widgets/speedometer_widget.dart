@@ -1,19 +1,20 @@
-// speedometer_widget.dart
-// Single AnimationController drives ALL needle motion.
-// _animatable: Animatable<double> — swapped between TweenSequence (boot) and Tween.chain (demo).
-// currentSpeed getter is the one and only source of truth for needle position.
+// speedometer_widget.dart — Precision analog cluster controller.
 
-import 'dart:async';
+
 import 'package:flutter/material.dart';
-import '../core/app_colors.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../models/drive_mode.dart';
+import '../services/gps_service.dart';
 import 'demo_control_button.dart';
 import 'gauge_painter.dart';
 import 'needle_painter.dart';
 
-enum _Phase { boot, idle, demo }
+enum _Phase { boot, idle, telemetry }
 
 class SpeedometerWidget extends StatefulWidget {
-  const SpeedometerWidget({super.key});
+  final DriveMode driveMode;
+  
+  const SpeedometerWidget({super.key, required this.driveMode});
   @override
   State<SpeedometerWidget> createState() => _SpeedometerWidgetState();
 }
@@ -21,27 +22,15 @@ class SpeedometerWidget extends StatefulWidget {
 class _SpeedometerWidgetState extends State<SpeedometerWidget>
     with SingleTickerProviderStateMixin {
 
-  // ── Single controller ────────────────────────────────────────────────────
   late AnimationController _ctrl;
-  // Swapped per phase: TweenSequence (boot) or Tween.chain (demo/idle)
   late Animatable<double> _anim;
 
-  // ── State ────────────────────────────────────────────────────────────────
-  _Phase _phase       = _Phase.boot;
+  _Phase _phase       = _Phase.idle;
   double _targetSpeed = 0;
-  Timer? _demoTimer;
-  int    _demoIndex   = 0;
+  bool   _pendingStart = false;
 
-  // The single source of truth for what the needle/display shows
   double get _speed => _anim.transform(_ctrl.value).clamp(0.0, 300.0);
 
-  static const List<double> _seq = [
-    0, 18, 38, 60, 85, 110, 135, 158, 178,
-    198, 218, 242, 265, 278, 284, 278, 265,
-    245, 220, 192, 160, 128, 96, 66, 40, 18, 4, 0,
-  ];
-
-  // ── Lifecycle ────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
@@ -49,127 +38,133 @@ class _SpeedometerWidgetState extends State<SpeedometerWidget>
     _ctrl = AnimationController(vsync: this)
       ..addListener(() { if (mounted) setState(() {}); })
       ..addStatusListener(_onStatus);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _boot());
+    GpsService().addListener(_onGpsUpdate);
+  }
+
+  void _onGpsUpdate() {
+    if (_phase != _Phase.telemetry) return;
+    final double target = GpsService().currentSpeedKmh;
+    if ((target - _targetSpeed).abs() > 0.5) {
+      _animateTo(target);
+    }
   }
 
   void _onStatus(AnimationStatus s) {
     if (s == AnimationStatus.completed && _phase == _Phase.boot) {
-      setState(() {
-        _phase = _Phase.idle;
-        _anim  = Tween<double>(begin: 0, end: 0);
-        _ctrl.value = 1.0;
-      });
+      if (_pendingStart) {
+        _startTelemetry();
+      } else {
+        setState(() {
+          _phase = _Phase.idle;
+          _anim  = Tween<double>(begin: 0, end: 0);
+          _ctrl.value = 1.0;
+        });
+      }
     }
   }
 
-  // ── Boot sequence ────────────────────────────────────────────────────────
-  // 0 → 300 (easeInCubic, 40% of time) → 0 (easeOutQuint, 60% of time)
+  // ── Physically weighted ignition sweep ─────────────────────────────────────
   void _boot() {
     if (!mounted) return;
     _ctrl.stop();
-    _ctrl.duration = const Duration(milliseconds: 3400);
+    // 3.8s total duration for a heavy, mechanical sweep feel.
+    _ctrl.duration = const Duration(milliseconds: 3800);
     _anim = TweenSequence<double>([
       TweenSequenceItem(
         tween: Tween(begin: 0.0, end: 300.0)
-            .chain(CurveTween(curve: Curves.easeInCubic)),
-        weight: 40,
+            .chain(CurveTween(curve: Curves.easeInOutSine)),
+        weight: 45,
       ),
       TweenSequenceItem(
         tween: Tween(begin: 300.0, end: 0.0)
-            .chain(CurveTween(curve: Curves.easeOutQuint)),
-        weight: 60,
+            .chain(CurveTween(curve: Curves.easeInOutQuad)),
+        weight: 55,
       ),
     ]);
     _ctrl.forward(from: 0);
   }
 
-  // ── Smooth needle transition ─────────────────────────────────────────────
   void _animateTo(double target) {
     final double from  = _speed;
     final double delta = (target - from).abs();
-    final int    ms    = (delta / 300 * 1400 + 200).round().clamp(200, 1400);
+    // Faster, snappier duration
+    final int    ms    = (delta / 300 * 600 + 200).round().clamp(200, 800);
 
     _ctrl.stop();
     _ctrl.duration = Duration(milliseconds: ms);
     _anim = Tween<double>(begin: from, end: target)
-        .chain(CurveTween(curve: Curves.easeInOutCubic));
+        .chain(CurveTween(curve: Curves.easeOutCubic)); // Mechanical cubic ease out
     _ctrl.forward(from: 0);
     _targetSpeed = target;
   }
 
-  // ── Demo control ─────────────────────────────────────────────────────────
-  void _startDemo() {
-    if (_phase == _Phase.demo) return;
-    _ctrl.stop();
-    setState(() { _phase = _Phase.demo; _demoIndex = 0; });
-    _animateTo(_seq[0]);
-    _demoTimer = Timer.periodic(const Duration(milliseconds: 1600), (_) {
-      _demoIndex++;
-      if (_demoIndex >= _seq.length) { _stopDemo(); return; }
-      _animateTo(_seq[_demoIndex]);
+  void _triggerStartSequence() {
+    if (_phase != _Phase.idle) return;
+    setState(() {
+      _phase = _Phase.boot;
+      _pendingStart = true;
     });
+    _boot();
   }
 
-  void _stopDemo() {
-    _demoTimer?.cancel(); _demoTimer = null;
-    setState(() { _phase = _Phase.idle; _demoIndex = 0; });
+  void _startTelemetry() {
+    if (_phase == _Phase.telemetry) return;
+    _ctrl.stop();
+    setState(() { _phase = _Phase.telemetry; });
+    GpsService().startTelemetry();
+    _animateTo(GpsService().currentSpeedKmh);
+  }
+
+  void _stopTelemetry() {
+    GpsService().stopTelemetry();
+    setState(() { _phase = _Phase.idle; _pendingStart = false; });
     _animateTo(0);
   }
 
   @override
   void dispose() {
     _ctrl.dispose();
-    _demoTimer?.cancel();
+    GpsService().removeListener(_onGpsUpdate);
     super.dispose();
   }
 
-  // ── Build ────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final double spd        = _speed;
-    final bool   isDemo     = _phase == _Phase.demo;
+    final bool   isTelemetry = _phase == _Phase.telemetry;
     final bool   isBooting  = _phase == _Phase.boot;
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _statusRow(isDemo, isBooting),
+        _statusRow(isTelemetry, isBooting),
         const SizedBox(height: 18),
         _gaugeStack(spd),
         const SizedBox(height: 24),
         _infoRow(spd),
         const SizedBox(height: 26),
-        _buttons(isDemo, isBooting),
+        _buttons(isTelemetry, isBooting),
         const SizedBox(height: 20),
       ],
     );
   }
 
-  Widget _statusRow(bool isDemo, bool isBooting) {
-    final String txt = isBooting ? 'SYSTEM INITIALIZING'
-        : isDemo ? 'SIMULATION RUNNING' : 'SYSTEM STANDBY';
-    final Color  c   = isBooting ? AppColors.driveModeComfort
-        : isDemo ? AppColors.statusActive : AppColors.statusIdle;
+  Widget _statusRow(bool isTelemetry, bool isBooting) {
+    final String txt = isBooting ? 'System Boot'
+        : isTelemetry ? 'Telemetry Active' : 'System Standby';
+    final Color  c   = isBooting ? const Color(0xFF4F6B8F)
+        : isTelemetry ? const Color(0xFF5A7D65) : const Color(0xFF4A4A52);
+    
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 400),
-          width: 6, height: 6,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle, color: c,
-            boxShadow: (isDemo || isBooting)
-                ? [BoxShadow(color: c.withValues(alpha: 0.6), blurRadius: 8)]
-                : [],
-          ),
+        Container(
+          width: 5, height: 5,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: c),
         ),
         const SizedBox(width: 8),
-        AnimatedDefaultTextStyle(
-          duration: const Duration(milliseconds: 400),
-          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
-              letterSpacing: 2.8, color: c),
-          child: Text(txt),
-        ),
+        Text(txt.toUpperCase(), style: GoogleFonts.inter(
+          fontSize: 8, fontWeight: FontWeight.w600, letterSpacing: 2.0, color: c)),
       ],
     );
   }
@@ -180,91 +175,103 @@ class _SpeedometerWidgetState extends State<SpeedometerWidget>
       return Center(
         child: SizedBox(
           width: sz, height: sz,
-          child: Stack(alignment: Alignment.center, children: [
-            RepaintBoundary(child: CustomPaint(
-              size: Size(sz, sz), painter: GaugePainter(speed: spd))),
-            RepaintBoundary(child: CustomPaint(
-              size: Size(sz, sz), painter: NeedlePainter(speed: spd))),
-            _centerDisplay(spd),
-          ]),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 600),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: Stack(
+              key: ValueKey(widget.driveMode),
+              alignment: Alignment.center, 
+              children: [
+                RepaintBoundary(child: CustomPaint(
+                  size: Size(sz, sz), painter: GaugePainter(speed: spd, driveMode: widget.driveMode))),
+                RepaintBoundary(child: CustomPaint(
+                  size: Size(sz, sz), painter: NeedlePainter(speed: spd, driveMode: widget.driveMode))),
+                _centerDisplay(spd, widget.driveMode),
+              ],
+            ),
+          ),
         ),
       );
     });
   }
 
-  Widget _centerDisplay(double spd) {
-    final String mode = _driveMode(spd);
-    final Color  mc   = _modeColor(spd);
+  Widget _centerDisplay(double spd, DriveMode driveMode) {
+    final String mode = driveMode.label;
+    final Color  mc   = driveMode.accent;
     return Transform.translate(
       offset: const Offset(0, 50),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Text(spd.round().toString().padLeft(3, '0'),
-          style: const TextStyle(fontSize: 50, fontWeight: FontWeight.w200,
-              color: AppColors.speedDigit, letterSpacing: -2.0, height: 1.0)),
-        const SizedBox(height: 1),
-        const Text('KM/H', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600,
-            letterSpacing: 4.5, color: AppColors.speedUnit)),
-        const SizedBox(height: 7),
-        AnimatedDefaultTextStyle(
-          duration: const Duration(milliseconds: 500),
-          style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800,
-              letterSpacing: 3.5, color: mc),
-          child: Text('— $mode —'),
+          style: GoogleFonts.inter(fontSize: 52, fontWeight: FontWeight.w300,
+              color: Colors.white, letterSpacing: -2.0, height: 1.0)),
+        const SizedBox(height: 2),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text('KM/H', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600,
+                letterSpacing: 2.5, color: const Color(0xFF8A8A94))),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: mc.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(2),
+                border: Border.all(color: mc.withValues(alpha: 0.5), width: 0.5),
+              ),
+              child: Text(mode, style: GoogleFonts.inter(fontSize: 6, fontWeight: FontWeight.w700,
+                  letterSpacing: 1.0, color: mc)),
+            ),
+          ],
         ),
       ]),
     );
   }
 
   Widget _infoRow(double spd) {
-    return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-      _chip('PEAK', '${_seq.reduce((a, b) => a > b ? a : b).round()} KM/H'),
-      _divider(),
-      _chip('TARGET', '${_targetSpeed.round()} KM/H'),
-      _divider(),
-      _chip('MODE', _driveMode(spd)),
-    ]);
+    return ListenableBuilder(
+      listenable: GpsService(),
+      builder: (context, _) {
+        final topSpeed = GpsService().topSpeed;
+        return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          _chip('PEAK', '${topSpeed.round()} KM/H'),
+          _divider(),
+          _chip('TARGET', '${_targetSpeed.round()} KM/H'),
+        ]);
+      }
+    );
   }
 
   Widget _chip(String label, String value) => Column(children: [
-    Text(label, style: const TextStyle(fontSize: 7, fontWeight: FontWeight.w700,
-        letterSpacing: 2, color: AppColors.speedUnit)),
+    Text(label, style: GoogleFonts.inter(fontSize: 7, fontWeight: FontWeight.w600,
+        letterSpacing: 1.5, color: const Color(0xFF5E5E68))),
     const SizedBox(height: 3),
-    Text(value, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500,
-        color: AppColors.speedDigit, letterSpacing: 0.4)),
+    Text(value, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500,
+        color: Colors.white, letterSpacing: 0.2)),
   ]);
 
   Widget _divider() => Container(
-    margin: const EdgeInsets.symmetric(horizontal: 18),
-    width: 1, height: 22, color: AppColors.btnInactiveBorder);
+    margin: const EdgeInsets.symmetric(horizontal: 24),
+    width: 1, height: 20, color: const Color(0xFF1E1E22));
 
-  Widget _buttons(bool isDemo, bool isBooting) => Padding(
+  Widget _buttons(bool isTelemetry, bool isBooting) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 44),
     child: Row(children: [
       Expanded(child: DemoControlButton(
         label: 'START', icon: Icons.play_arrow_rounded,
-        isActive: !isDemo && !isBooting,
-        activeColor: AppColors.btnActiveBorder,
-        onPressed: (isDemo || isBooting) ? null : _startDemo,
+        isActive: isTelemetry, // glows green when active
+        activeColor: const Color(0xFF4ADE80), // Premium green
+        onPressed: (isTelemetry || isBooting) ? null : _triggerStartSequence,
       )),
       const SizedBox(width: 14),
       Expanded(child: DemoControlButton(
         label: 'STOP', icon: Icons.stop_rounded,
-        isActive: isDemo, activeColor: const Color(0xFF404050),
-        onPressed: isDemo ? _stopDemo : null,
+        isActive: false, // no permanent glow, only visual press state
+        activeColor: const Color(0xFFEF4444), // Premium red
+        onPressed: isTelemetry ? _stopTelemetry : null,
       )),
     ]),
   );
 
-  String _driveMode(double s) {
-    if (s < 80) return 'COMFORT';
-    if (s < 160) return 'SPORT';
-    if (s < 250) return 'SPORT+';
-    return 'TRACK';
-  }
-
-  Color _modeColor(double s) {
-    if (s < 80) return AppColors.driveModeComfort;
-    if (s < 160) return AppColors.driveModeSport;
-    return AppColors.driveMode;
-  }
 }

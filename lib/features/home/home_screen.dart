@@ -10,6 +10,7 @@ import '../../features/trips/trips_screen.dart';
 import '../../features/analytics/analytics_screen.dart';
 import '../../features/garage/garage_screen.dart';
 import '../../features/profile/profile_screen.dart';
+import '../../features/map/map_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -38,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     driveMode: _driveMode,
                     onDriveModeChanged: (m) => setState(() => _driveMode = m),
                   ),
+                  MapScreen(driveMode: _driveMode),
                   const TripsScreen(),
                   const AnalyticsScreen(),
                   const GarageScreen(),
@@ -45,12 +47,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-            BottomNavBar(
-              selectedIndex: _tabIndex,
-              driveMode:     _driveMode,
-              onTap: (i) => setState(() => _tabIndex = i),
-            ),
           ]),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: BottomNavBar(
+          selectedIndex: _tabIndex,
+          driveMode:     _driveMode,
+          onTap: (i) => setState(() => _tabIndex = i),
         ),
       ),
     );

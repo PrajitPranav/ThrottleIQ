@@ -5,9 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'features/home/home_screen.dart';
+import 'services/trip_storage_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load saved trips before UI rendering
+  await TripStorageService().loadTrips();
 
   // Portrait-only for the dashboard experience
   SystemChrome.setPreferredOrientations([

@@ -1,4 +1,4 @@
-// drive_mode.dart — DriveMode enum with associated theme data.
+// drive_mode.dart — DriveMode enum with elegant theme data.
 
 import 'package:flutter/material.dart';
 
@@ -14,33 +14,33 @@ extension DriveModeX on DriveMode {
     }
   }
 
-  // Primary accent color for this mode
+  // Primary accent color for this mode (muted, elegant)
   Color get accent {
     switch (this) {
-      case DriveMode.eco:      return const Color(0xFF26A65B);
-      case DriveMode.comfort:  return const Color(0xFF4A9ECC);
-      case DriveMode.sport:    return const Color(0xFFE08020);
-      case DriveMode.sportPlus: return const Color(0xFFCC1800);
+      case DriveMode.eco:      return const Color(0xFF5A7D65); // sage green
+      case DriveMode.comfort:  return const Color(0xFF4F6B8F); // slate blue
+      case DriveMode.sport:    return const Color(0xFF9E653F); // muted amber
+      case DriveMode.sportPlus: return const Color(0xFF8F3232); // deep red
     }
   }
 
-  // Soft ambient glow color (low alpha)
+  // Soft ambient glow color (extremely low alpha for minimalism)
   Color get glow {
     switch (this) {
-      case DriveMode.eco:      return const Color(0x2226A65B);
-      case DriveMode.comfort:  return const Color(0x224A9ECC);
-      case DriveMode.sport:    return const Color(0x33E08020);
-      case DriveMode.sportPlus: return const Color(0x44CC1800);
+      case DriveMode.eco:      return const Color(0x0C5A7D65);
+      case DriveMode.comfort:  return const Color(0x0C4F6B8F);
+      case DriveMode.sport:    return const Color(0x129E653F);
+      case DriveMode.sportPlus: return const Color(0x158F3232);
     }
   }
 
-  // Background radial gradient overlay color
+  // Background radial gradient overlay color (barely visible)
   Color get bgOverlay {
     switch (this) {
-      case DriveMode.eco:      return const Color(0x1126A65B);
-      case DriveMode.comfort:  return const Color(0x114A9ECC);
-      case DriveMode.sport:    return const Color(0x18E08020);
-      case DriveMode.sportPlus: return const Color(0x22CC1800);
+      case DriveMode.eco:      return const Color(0x065A7D65);
+      case DriveMode.comfort:  return const Color(0x064F6B8F);
+      case DriveMode.sport:    return const Color(0x0A9E653F);
+      case DriveMode.sportPlus: return const Color(0x0D8F3232);
     }
   }
 }

@@ -53,57 +53,66 @@ class _DemoControlButtonState extends State<DemoControlButton> {
     final Color accentColor = widget.activeColor;
 
     // Colors shift based on active/inactive/pressed state
-    final Color bgColor = enabled
-        ? (_pressed
-            ? accentColor.withValues(alpha: 0.22)
-            : accentColor.withValues(alpha: 0.10))
-        : AppColors.btnInactiveFill;
+    final Color bgColor = widget.isActive
+        ? accentColor.withValues(alpha: 0.15)
+        : enabled 
+            ? (_pressed ? accentColor.withValues(alpha: 0.22) : accentColor.withValues(alpha: 0.10))
+            : AppColors.btnInactiveFill;
 
-    final Color borderColor = enabled
-        ? accentColor.withValues(alpha: _pressed ? 0.9 : 0.45)
-        : AppColors.btnInactiveBorder;
+    final Color borderColor = widget.isActive
+        ? accentColor.withValues(alpha: 0.6)
+        : enabled
+            ? accentColor.withValues(alpha: _pressed ? 0.9 : 0.45)
+            : AppColors.btnInactiveBorder;
 
-    final Color contentColor = enabled
-        ? accentColor.withValues(alpha: _pressed ? 1.0 : 0.80)
-        : AppColors.statusIdle;
+    final Color contentColor = widget.isActive
+        ? accentColor
+        : enabled
+            ? accentColor.withValues(alpha: _pressed ? 1.0 : 0.80)
+            : AppColors.statusIdle;
 
     return GestureDetector(
       onTapDown:   _onTapDown,
       onTapUp:     _onTapUp,
       onTapCancel: _onTapCancel,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve:    Curves.easeOut,
-        padding: const EdgeInsets.symmetric(vertical: 15),
-        decoration: BoxDecoration(
-          color:        bgColor,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: borderColor, width: 1.2),
-          boxShadow: enabled
-              ? [
-                  BoxShadow(
-                    color:       accentColor.withValues(alpha: 0.08),
-                    blurRadius:  12,
-                    spreadRadius: 0,
-                  ),
-                ]
-              : [],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(widget.icon, color: contentColor, size: 17),
-            const SizedBox(width: 7),
-            Text(
-              widget.label,
-              style: TextStyle(
-                fontSize:     11,
-                fontWeight:   FontWeight.w700,
-                letterSpacing: 2.5,
-                color:        contentColor,
+      child: AnimatedScale(
+        scale: _pressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve:    Curves.easeOut,
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          decoration: BoxDecoration(
+            color:        bgColor,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: borderColor, width: 1.2),
+            boxShadow: enabled && widget.isActive
+                ? [
+                    BoxShadow(
+                      color:       accentColor.withValues(alpha: 0.18),
+                      blurRadius:  16,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : [],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(widget.icon, color: contentColor, size: 17),
+              const SizedBox(width: 7),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize:     11,
+                  fontWeight:   FontWeight.w700,
+                  letterSpacing: 2.5,
+                  color:        contentColor,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
