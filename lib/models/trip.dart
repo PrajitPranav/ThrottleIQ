@@ -31,6 +31,22 @@ class Trip {
 
   int get durationMinutes => endTime.difference(startTime).inMinutes;
   
+  int get displayExpectedMinutes {
+    if (expectedDurationMinutes != null && expectedDurationMinutes! > 0) {
+      return expectedDurationMinutes!;
+    }
+    // Fallback calculation for old trips or edge cases
+    double baselineSpeed = 45.0;
+    if (driveMode == DriveMode.sport) baselineSpeed = 55.0;
+    if (driveMode == DriveMode.sportPlus) baselineSpeed = 65.0;
+    
+    final calc = (distanceKm / baselineSpeed * 60).round();
+    return calc > 0 ? calc : 1;
+  }
+
+  DateTime get estimatedArrivalTime => startTime.add(Duration(minutes: displayExpectedMinutes));
+  DateTime get actualArrivalTime => endTime;
+
   double get averageSpeedKmh {
     final hours = durationMinutes / 60.0;
     return hours > 0 ? (distanceKm / hours) : 0.0;

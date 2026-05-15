@@ -54,10 +54,10 @@ class TripCard extends StatelessWidget {
                     ),
                     Row(
                       children: [
-                        if (trip.expectedDurationMinutes != null && trip.expectedDurationMinutes != trip.durationMinutes) ...[
+                        if (trip.displayExpectedMinutes != trip.durationMinutes) ...[
                           Builder(
                             builder: (context) {
-                              final diff = trip.expectedDurationMinutes! - trip.durationMinutes;
+                              final diff = trip.displayExpectedMinutes - trip.durationMinutes;
                               final bool isFaster = diff > 0;
                               final Color accentColor = isFaster ? const Color(0xFF4ADE80) : const Color(0xFFEF4444);
                               final IconData icon = isFaster ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;

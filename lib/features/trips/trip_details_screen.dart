@@ -167,7 +167,9 @@ class TripDetailsScreen extends StatelessWidget {
                   // ETA Efficiency
                   EtaComparisonCard(
                     actualMinutes: trip.durationMinutes,
-                    expectedMinutes: trip.expectedDurationMinutes,
+                    expectedMinutes: trip.displayExpectedMinutes,
+                    startTime: trip.startTime,
+                    endTime: trip.endTime,
                   ),
                   const SizedBox(height: 32),
 
