@@ -7,14 +7,15 @@ import 'gauge_painter.dart';
 class NeedlePainter extends CustomPainter {
   final double speed;
   final DriveMode driveMode;
+  final bool useMetric;
 
-  const NeedlePainter({required this.speed, required this.driveMode});
+  const NeedlePainter({required this.speed, required this.driveMode, required this.useMetric});
 
   @override
   void paint(Canvas canvas, Size size) {
     final Offset center = Offset(size.width / 2, size.height / 2);
     final double radius = size.width / 2;
-    final double angle = GaugePainter.speedToAngle(speed);
+    final double angle = GaugePainter.speedToAngle(speed, useMetric);
 
     canvas.save();
     canvas.translate(center.dx, center.dy);
@@ -143,5 +144,8 @@ class NeedlePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(NeedlePainter oldDelegate) => oldDelegate.speed != speed || oldDelegate.driveMode != driveMode;
+  bool shouldRepaint(NeedlePainter oldDelegate) => 
+      oldDelegate.speed != speed || 
+      oldDelegate.driveMode != driveMode || 
+      oldDelegate.useMetric != useMetric;
 }

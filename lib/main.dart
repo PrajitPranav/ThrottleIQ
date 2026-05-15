@@ -6,12 +6,20 @@ import 'package:flutter/services.dart';
 
 import 'features/home/home_screen.dart';
 import 'services/trip_storage_service.dart';
+import 'services/settings_service.dart';
+import 'services/profile_service.dart';
+import 'services/garage_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Load saved trips before UI rendering
-  await TripStorageService().loadTrips();
+  // Load saved data before UI rendering
+  await Future.wait([
+    TripStorageService().loadTrips(),
+    SettingsService().loadSettings(),
+    ProfileService().loadProfile(),
+    GarageService().loadGarage(),
+  ]);
 
   // Portrait-only for the dashboard experience
   SystemChrome.setPreferredOrientations([

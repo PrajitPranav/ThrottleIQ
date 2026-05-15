@@ -8,6 +8,7 @@ import '../services/gps_service.dart';
 import 'demo_control_button.dart';
 import 'gauge_painter.dart';
 import 'needle_painter.dart';
+import '../services/settings_service.dart';
 
 enum _Phase { boot, idle, telemetry }
 
@@ -39,6 +40,11 @@ class _SpeedometerWidgetState extends State<SpeedometerWidget>
       ..addListener(() { if (mounted) setState(() {}); })
       ..addStatusListener(_onStatus);
     GpsService().addListener(_onGpsUpdate);
+    SettingsService().addListener(_onSettingsUpdate);
+  }
+
+  void _onSettingsUpdate() {
+    if (mounted) setState(() {});
   }
 
   void _onGpsUpdate() {
@@ -125,6 +131,7 @@ class _SpeedometerWidgetState extends State<SpeedometerWidget>
   void dispose() {
     _ctrl.dispose();
     GpsService().removeListener(_onGpsUpdate);
+    SettingsService().removeListener(_onSettingsUpdate);
     super.dispose();
   }
 
@@ -133,15 +140,17 @@ class _SpeedometerWidgetState extends State<SpeedometerWidget>
     final double spd        = _speed;
     final bool   isTelemetry = _phase == _Phase.telemetry;
     final bool   isBooting  = _phase == _Phase.boot;
+    final bool   useMetric  = SettingsService().useMetric;
+    final double displaySpeed = SettingsService().convertSpeed(spd);
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _statusRow(isTelemetry, isBooting),
         const SizedBox(height: 18),
-        _gaugeStack(spd),
+        _gaugeStack(displaySpeed, useMetric),
         const SizedBox(height: 24),
-        _infoRow(spd),
+        _infoRow(displaySpeed, useMetric),
         const SizedBox(height: 26),
         _buttons(isTelemetry, isBooting),
         const SizedBox(height: 20),
@@ -169,7 +178,7 @@ class _SpeedometerWidgetState extends State<SpeedometerWidget>
     );
   }
 
-  Widget _gaugeStack(double spd) {
+  Widget _gaugeStack(double spd, bool useMetric) {
     return LayoutBuilder(builder: (ctx, con) {
       final double sz = (con.maxWidth * 0.90).clamp(220.0, 390.0);
       return Center(
@@ -180,14 +189,14 @@ class _SpeedometerWidgetState extends State<SpeedometerWidget>
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
             child: Stack(
-              key: ValueKey(widget.driveMode),
+              key: ValueKey("${widget.driveMode}_$useMetric"), // Rebuild if unit changes to refresh ticks
               alignment: Alignment.center, 
               children: [
                 RepaintBoundary(child: CustomPaint(
-                  size: Size(sz, sz), painter: GaugePainter(speed: spd, driveMode: widget.driveMode))),
+                  size: Size(sz, sz), painter: GaugePainter(speed: spd, driveMode: widget.driveMode, useMetric: useMetric))),
                 RepaintBoundary(child: CustomPaint(
-                  size: Size(sz, sz), painter: NeedlePainter(speed: spd, driveMode: widget.driveMode))),
-                _centerDisplay(spd, widget.driveMode),
+                  size: Size(sz, sz), painter: NeedlePainter(speed: spd, driveMode: widget.driveMode, useMetric: useMetric))),
+                _centerDisplay(spd, widget.driveMode, useMetric),
               ],
             ),
           ),
@@ -196,9 +205,10 @@ class _SpeedometerWidgetState extends State<SpeedometerWidget>
     });
   }
 
-  Widget _centerDisplay(double spd, DriveMode driveMode) {
+  Widget _centerDisplay(double spd, DriveMode driveMode, bool useMetric) {
     final String mode = driveMode.label;
     final Color  mc   = driveMode.accent;
+    final String unit = SettingsService().speedUnit;
     return Transform.translate(
       offset: const Offset(0, 50),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -210,7 +220,7 @@ class _SpeedometerWidgetState extends State<SpeedometerWidget>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text('KM/H', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600,
+            Text(unit, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600,
                 letterSpacing: 2.5, color: const Color(0xFF8A8A94))),
             const SizedBox(width: 6),
             Container(
@@ -229,15 +239,17 @@ class _SpeedometerWidgetState extends State<SpeedometerWidget>
     );
   }
 
-  Widget _infoRow(double spd) {
+  Widget _infoRow(double spd, bool useMetric) {
+    final unit = SettingsService().speedUnit;
     return ListenableBuilder(
       listenable: GpsService(),
       builder: (context, _) {
-        final topSpeed = GpsService().topSpeed;
+        final topSpeed = SettingsService().convertSpeed(GpsService().topSpeed);
+        final targetSpeed = spd; // Local animation state
         return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          _chip('PEAK', '${topSpeed.round()} KM/H'),
+          _chip('PEAK', '${topSpeed.round()} $unit'),
           _divider(),
-          _chip('TARGET', '${_targetSpeed.round()} KM/H'),
+          _chip('TARGET', '${targetSpeed.round()} $unit'),
         ]);
       }
     );

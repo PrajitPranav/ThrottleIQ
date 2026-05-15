@@ -7,6 +7,7 @@ import '../../widgets/telemetry_card.dart';
 import '../../services/gps_service.dart';
 import '../../widgets/drive_mode_selector.dart';
 import '../../widgets/vehicle_status_panel.dart';
+import '../../services/settings_service.dart';
 
 class DashboardScreen extends StatelessWidget {
   final DriveMode driveMode;
@@ -37,31 +38,48 @@ class DashboardScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: ListenableBuilder(
-              listenable: GpsService(),
+              listenable: Listenable.merge([GpsService(), SettingsService()]),
               builder: (context, _) {
                 final gps = GpsService();
+                final settings = SettingsService();
                 
                 // Calculate average speed
                 final double distanceKm = gps.totalDistanceKm;
                 final double minutes = gps.tripDurationMinutes.toDouble();
                 final double hours = minutes / 60.0;
-                final double avgSpeed = hours > 0 ? (distanceKm / hours) : 0.0;
+                final double avgSpeedKmph = hours > 0 ? (distanceKm / hours) : 0.0;
 
                 return Column(
                   children: [
                     Row(
                       children: [
-                        Expanded(child: TelemetryCard(label: 'AVG SPEED', value: avgSpeed.toStringAsFixed(0), unit: 'KM/H')),
+                        Expanded(child: TelemetryCard(
+                          label: 'AVG SPEED', 
+                          value: settings.formatSpeed(avgSpeedKmph), 
+                          unit: settings.speedUnit
+                        )),
                         const SizedBox(width: 12),
-                        Expanded(child: TelemetryCard(label: 'TOP SPEED', value: gps.topSpeed.toStringAsFixed(0), unit: 'KM/H')),
+                        Expanded(child: TelemetryCard(
+                          label: 'TOP SPEED', 
+                          value: settings.formatSpeed(gps.topSpeed), 
+                          unit: settings.speedUnit
+                        )),
                       ],
                     ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        Expanded(child: TelemetryCard(label: 'DISTANCE', value: gps.totalDistanceKm.toStringAsFixed(1), unit: 'KM')),
+                        Expanded(child: TelemetryCard(
+                          label: 'DISTANCE', 
+                          value: settings.formatDistance(gps.totalDistanceKm), 
+                          unit: settings.distanceUnit
+                        )),
                         const SizedBox(width: 12),
-                        Expanded(child: TelemetryCard(label: 'TRIP TIME', value: gps.tripDurationMinutes.toString(), unit: 'MIN')),
+                        Expanded(child: TelemetryCard(
+                          label: 'TRIP TIME', 
+                          value: gps.tripDurationMinutes.toString(), 
+                          unit: 'MIN'
+                        )),
                       ],
                     ),
                   ],

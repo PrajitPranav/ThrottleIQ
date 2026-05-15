@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/trip.dart';
 import 'trip_storage_service.dart';
+import 'garage_service.dart';
 
 class GpsService extends ChangeNotifier {
   static final GpsService _instance = GpsService._internal();
@@ -24,6 +25,9 @@ class GpsService extends ChangeNotifier {
 
   final List<LatLng> _routePoints = [];
   List<LatLng> get routePoints => List.unmodifiable(_routePoints);
+
+  final List<double> _speedSamples = [];
+  List<double> get speedSamples => List.unmodifiable(_speedSamples);
 
   double _topSpeed = 0.0;
   double get topSpeed => _topSpeed;
@@ -68,6 +72,7 @@ class GpsService extends ChangeNotifier {
     _topSpeed = 0.0;
     _totalDistanceKm = 0.0;
     _routePoints.clear();
+    _speedSamples.clear();
     _startTime = DateTime.now();
     notifyListeners();
 
@@ -98,6 +103,7 @@ class GpsService extends ChangeNotifier {
       }
 
       _routePoints.add(latLng);
+      _speedSamples.add(speedKmh);
       notifyListeners();
     });
   }
@@ -107,13 +113,24 @@ class GpsService extends ChangeNotifier {
     
     // Save the trip before clearing
     if (_startTime != null && _routePoints.isNotEmpty) {
+      final activeVehicleId = GarageService().activeVehicleId;
+      
+      // Calculate expected duration based on a baseline (e.g., 45 km/h urban/mixed)
+      // If distance is very small, expected might be same as actual
+      final expectedMins = _totalDistanceKm > 0 
+          ? (_totalDistanceKm / 45 * 60).round().clamp(1, 1440)
+          : 0;
+
       final trip = Trip(
         id: const Uuid().v4(),
+        vehicleId: activeVehicleId,
         startTime: _startTime!,
         endTime: DateTime.now(),
         distanceKm: _totalDistanceKm,
         topSpeedKmh: _topSpeed,
         routePoints: List.from(_routePoints),
+        speedSamples: List.from(_speedSamples),
+        expectedDurationMinutes: expectedMins > 0 ? expectedMins : null,
       );
       TripStorageService().saveTrip(trip);
     }

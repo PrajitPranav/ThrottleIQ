@@ -9,23 +9,29 @@ import '../models/drive_mode.dart';
 class GaugePainter extends CustomPainter {
   final double speed;
   final DriveMode driveMode;
+  final bool useMetric;
 
-  const GaugePainter({required this.speed, required this.driveMode});
+  const GaugePainter({required this.speed, required this.driveMode, required this.useMetric});
 
-  // 0–200 km/h covers the first 78% of the arc.
-  // 200–300 km/h covers the remaining 22%.
-  static const double _splitSpeed = 200.0;
+  // KM/H scale: 0-300, split at 200
+  // MPH scale: 0-200, split at 120
+  double get _maxSpeed => useMetric ? 300.0 : 200.0;
+  double get _splitSpeed => useMetric ? 200.0 : 120.0;
   static const double _splitArcRatio = 0.78;
 
   static const double _startAngle = math.pi * 0.75;
   static const double _sweepAngle = math.pi * 1.50;
 
-  static double speedToAngle(double spd) {
-    if (spd <= _splitSpeed) {
-      return _startAngle + _sweepAngle * _splitArcRatio * (spd / _splitSpeed);
+  static double speedToAngle(double spd, bool metric) {
+    final double maxVal = metric ? 300.0 : 200.0;
+    final double splitVal = metric ? 200.0 : 120.0;
+    final double overSplitMax = metric ? 100.0 : 80.0;
+
+    if (spd <= splitVal) {
+      return _startAngle + _sweepAngle * _splitArcRatio * (spd / splitVal);
     } else {
-      final double over = spd - _splitSpeed;
-      final double fraction = over / 100.0;
+      final double over = spd - splitVal;
+      final double fraction = over / overSplitMax;
       final double start = _startAngle + _sweepAngle * _splitArcRatio;
       return start + _sweepAngle * (1.0 - _splitArcRatio) * fraction;
     }
@@ -111,7 +117,7 @@ class GaugePainter extends CustomPainter {
     );
 
     // Active speed fill (matte, aggressive)
-    final double currentAngle = speedToAngle(speed);
+    final double currentAngle = speedToAngle(speed, useMetric);
     final double activeSweep = currentAngle - _startAngle;
 
     if (activeSweep > 0) {
@@ -140,16 +146,32 @@ class GaugePainter extends CustomPainter {
 
     final TextPainter tp = TextPainter(textDirection: TextDirection.ltr);
 
-    for (int s = 0; s <= 300; s += 5) {
-      // Scale compression logic
-      if (s > 200 && s % 10 != 0 && s != 225 && s != 250 && s != 275) continue;
+    final int step = useMetric ? 5 : 4;
+    final int majorStep = useMetric ? 20 : 20;
+    final int labelStep = useMetric ? 40 : 20;
 
-      final double angle = speedToAngle(s.toDouble());
+    for (int s = 0; s <= _maxSpeed; s += step) {
+      // Scale compression logic
+      if (useMetric) {
+        if (s > 200 && s % 10 != 0 && s != 225 && s != 250 && s != 275) continue;
+      } else {
+        if (s > 120 && s % 10 != 0 && s != 140 && s != 160 && s != 180) continue;
+      }
+
+      final double angle = speedToAngle(s.toDouble(), useMetric);
       final double cosA = math.cos(angle);
       final double sinA = math.sin(angle);
 
-      bool isMajor = (s <= 200 && s % 20 == 0) || s == 250 || s == 300;
-      bool isMinor = (s <= 200 && s % 10 == 0) || s == 225 || s == 275;
+      bool isMajor = (s <= _splitSpeed && s % majorStep == 0) || s == _maxSpeed || (useMetric && s == 250);
+      bool isMinor = (s <= _splitSpeed && s % (majorStep ~/ 2) == 0) || (!useMetric && s % 10 == 0);
+
+      if (useMetric) {
+         isMajor = (s <= 200 && s % 20 == 0) || s == 250 || s == 300;
+         isMinor = (s <= 200 && s % 10 == 0) || s == 225 || s == 275;
+      } else {
+         isMajor = (s <= 120 && s % 20 == 0) || s == 160 || s == 200;
+         isMinor = (s <= 120 && s % 10 == 0) || s == 140 || s == 180;
+      }
 
       final double currentInner = isMajor ? innerMajor : (isMinor ? innerMinor : innerSub);
 
@@ -186,7 +208,14 @@ class GaugePainter extends CustomPainter {
       );
 
       // Labels at major intervals
-      if ((s <= 200 && s % 40 == 0) || s == 250 || s == 300) {
+      bool shouldLabel = false;
+      if (useMetric) {
+        shouldLabel = (s <= 200 && s % 40 == 0) || s == 250 || s == 300;
+      } else {
+        shouldLabel = (s <= 120 && s % 20 == 0) || s == 160 || s == 200;
+      }
+
+      if (shouldLabel) {
         tp.text = TextSpan(
           text: s.toString(),
           style: TextStyle(
@@ -225,6 +254,8 @@ class GaugePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(GaugePainter oldDelegate) {
-    return oldDelegate.speed != speed || oldDelegate.driveMode != driveMode;
+    return oldDelegate.speed != speed || 
+           oldDelegate.driveMode != driveMode || 
+           oldDelegate.useMetric != useMetric;
   }
 }

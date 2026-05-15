@@ -27,12 +27,20 @@ class TripStorageService extends ChangeNotifier {
   Future<void> saveTrip(Trip trip) async {
     _trips.add(trip);
     _trips.sort((a, b) => b.startTime.compareTo(a.startTime));
-    
+    await _persist();
+    notifyListeners();
+  }
+
+  Future<void> deleteTrip(String id) async {
+    _trips.removeWhere((t) => t.id == id);
+    await _persist();
+    notifyListeners();
+  }
+
+  Future<void> _persist() async {
     final prefs = await SharedPreferences.getInstance();
     final List<String> tripJsonList = _trips.map((t) => t.toJson()).toList();
     await prefs.setStringList(_storageKey, tripJsonList);
-    
-    notifyListeners();
   }
 
   Future<void> clearAll() async {
