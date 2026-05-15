@@ -43,13 +43,16 @@ class TripCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      dateFormat.format(trip.startTime),
-                      style: GoogleFonts.inter(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.5,
-                        color: const Color(0xFF7A7A85),
+                    Expanded(
+                      child: Text(
+                        dateFormat.format(trip.startTime),
+                        style: GoogleFonts.inter(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.5,
+                          color: const Color(0xFF7A7A85),
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     Row(

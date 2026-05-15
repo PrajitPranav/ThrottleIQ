@@ -20,7 +20,7 @@ class HudStrip extends StatelessWidget {
           bottom: BorderSide(color: AppColors.chromeOuter, width: 1),
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
           _item(Icons.thermostat_outlined, '24°C'),
@@ -38,7 +38,6 @@ class HudStrip extends StatelessWidget {
               color: driveMode.accent,
             ),
           ),
-
           const Spacer(),
 
           _item(Icons.wifi, 'CONNECTED', color: const Color(0xFF5A7D65)),
@@ -57,7 +56,7 @@ class HudStrip extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 10, color: c),
-        const SizedBox(width: 6),
+        const SizedBox(width: 4),
         Text(
           label,
           style: GoogleFonts.inter(
@@ -79,7 +78,7 @@ class HudStrip extends StatelessWidget {
   }
 
   Widget _divider() => Container(
-    margin: const EdgeInsets.symmetric(horizontal: 14),
+    margin: const EdgeInsets.symmetric(horizontal: 6),
     width: 1,
     height: 12,
     color: const Color(0xFF2C2C32),
