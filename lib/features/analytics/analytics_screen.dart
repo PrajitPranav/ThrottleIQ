@@ -64,7 +64,7 @@ class _Ring extends StatelessWidget {
           CustomPaint(size: Size(size, size),
               painter: _ArcPainter(fraction: v, color: color, sw: sw)),
           Column(mainAxisSize: MainAxisSize.min, children: [
-            Text('${score.round()}',
+            Text('${score.isFinite ? score.round() : 0}',
               style: GoogleFonts.inter(fontSize: size * 0.22,
                   fontWeight: FontWeight.w400, color: Colors.white, letterSpacing: -1.0)),
             const SizedBox(height: 2),

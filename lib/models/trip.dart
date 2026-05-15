@@ -65,16 +65,28 @@ class Trip {
     // Sweet spot: 40-70 km/h average
     if (averageSpeedKmh > 90) score -= (averageSpeedKmh - 90) * 0.3;
     if (averageSpeedKmh < 20 && distanceKm > 1.0) score -= (20 - averageSpeedKmh) * 0.5;
-
+    
+    if (!score.isFinite) return 0;
     return score.round().clamp(0, 100);
   }
 
   // Individual component scores (for breakdown)
-  int get smoothScore => (100 - (maxGForce * 15)).round().clamp(0, 100);
-  int get speedScore => (100 - (topSpeedKmh > 100 ? (topSpeedKmh - 100) : 0)).round().clamp(0, 100);
+  int get smoothScore {
+    final double s = 100 - (maxGForce * 15);
+    if (!s.isFinite) return 0;
+    return s.round().clamp(0, 100);
+  }
+
+  int get speedScore {
+    final double s = 100 - (topSpeedKmh > 100 ? (topSpeedKmh - 100) : 0);
+    if (!s.isFinite) return 0;
+    return s.round().clamp(0, 100);
+  }
+
   int get efficiencyScore {
-    if (distanceKm == 0) return 0;
-    final double ratio = (expectedDurationMinutes ?? durationMinutes) / durationMinutes;
+    if (distanceKm == 0 || durationMinutes <= 0) return 100;
+    final double ratio = displayExpectedMinutes / durationMinutes;
+    if (!ratio.isFinite) return 100;
     return (ratio * 100).round().clamp(0, 100);
   }
 
