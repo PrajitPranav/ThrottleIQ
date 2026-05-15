@@ -31,6 +31,7 @@ class TripDetailsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final settings = SettingsService();
     final Set<Polyline> polylines = _buildPolylines();
+    final Set<Marker> markers = _buildMarkers();
     final LatLngBounds? bounds = _calculateBounds();
 
     return Scaffold(
@@ -73,6 +74,7 @@ class TripDetailsScreen extends StatelessWidget {
                       }
                     },
                     polylines: polylines,
+                    markers: markers,
                     zoomControlsEnabled: false,
                     mapToolbarEnabled: false,
                     myLocationButtonEnabled: false,
@@ -269,6 +271,24 @@ class TripDetailsScreen extends StatelessWidget {
         color: const Color(0xFFF97316),
         width: 4,
         startCap: Cap.roundCap, endCap: Cap.roundCap, jointType: JointType.round,
+      ),
+    };
+  }
+
+  Set<Marker> _buildMarkers() {
+    if (trip.routePoints.isEmpty) return {};
+    return {
+      Marker(
+        markerId: const MarkerId('start'),
+        position: trip.routePoints.first,
+        infoWindow: const InfoWindow(title: 'Start'),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+      ),
+      Marker(
+        markerId: const MarkerId('end'),
+        position: trip.routePoints.last,
+        infoWindow: const InfoWindow(title: 'End'),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
       ),
     };
   }

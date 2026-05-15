@@ -14,7 +14,7 @@ class EtaComparisonCard extends StatelessWidget {
     final diff = expectedMinutes! - actualMinutes;
     final bool isFaster = diff > 0;
     final String diffText = diff.abs() > 0 
-        ? "${_formatTime(diff.abs())} ${isFaster ? 'Faster' : 'Late'}"
+        ? "${_formatTime(diff.abs())} ${isFaster ? 'Faster' : 'Slower'}"
         : "On Time";
     
     final Color accentColor = isFaster ? const Color(0xFF4ADE80) : const Color(0xFFEF4444);

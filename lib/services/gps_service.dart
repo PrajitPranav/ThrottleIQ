@@ -7,6 +7,7 @@ import '../models/trip.dart';
 import 'trip_storage_service.dart';
 import 'garage_service.dart';
 import 'drive_mode_service.dart';
+import '../models/drive_mode.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'dart:math' as math;
 

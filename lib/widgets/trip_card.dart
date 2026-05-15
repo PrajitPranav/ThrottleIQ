@@ -52,20 +52,55 @@ class TripCard extends StatelessWidget {
                         color: const Color(0xFF7A7A85),
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E22),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        'Score: ${trip.tripScore}',
-                        style: GoogleFonts.inter(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                    Row(
+                      children: [
+                        if (trip.expectedDurationMinutes != null && trip.expectedDurationMinutes != trip.durationMinutes) ...[
+                          Builder(
+                            builder: (context) {
+                              final diff = trip.expectedDurationMinutes! - trip.durationMinutes;
+                              final bool isFaster = diff > 0;
+                              final Color accentColor = isFaster ? const Color(0xFF4ADE80) : const Color(0xFFEF4444);
+                              final IconData icon = isFaster ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;
+                              final String text = isFaster ? 'Faster' : 'Slower';
+                              
+                              return Container(
+                                margin: const EdgeInsets.only(right: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: accentColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: accentColor.withValues(alpha: 0.3)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(icon, size: 10, color: accentColor),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      text,
+                                      style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: accentColor),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+                          ),
+                        ],
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E1E22),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Score: ${trip.tripScore}',
+                            style: GoogleFonts.inter(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
