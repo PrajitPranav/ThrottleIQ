@@ -23,8 +23,7 @@ class GaugePainter extends CustomPainter {
   static const double _sweepAngle = math.pi * 1.50;
 
   static double speedToAngle(double spd, bool metric) {
-    final double maxVal = metric ? 300.0 : 200.0;
-    final double splitVal = metric ? 200.0 : 120.0;
+    final double splitVal    = metric ? 200.0 : 120.0;
     final double overSplitMax = metric ? 100.0 : 80.0;
 
     if (spd <= splitVal) {
@@ -148,7 +147,7 @@ class GaugePainter extends CustomPainter {
 
     final int step = useMetric ? 5 : 4;
     final int majorStep = useMetric ? 20 : 20;
-    final int labelStep = useMetric ? 40 : 20;
+
 
     for (int s = 0; s <= _maxSpeed; s += step) {
       // Scale compression logic
