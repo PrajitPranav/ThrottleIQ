@@ -16,10 +16,10 @@ class SpeedDistributionWidget extends StatelessWidget {
     int range4 = 0; // > 210
 
     for (var s in samples) {
-      if (s < 70)        { range1++; }
-      else if (s < 140)  { range2++; }
-      else if (s < 210)  { range3++; }
-      else               { range4++; }
+      if (s < 70) range1++;
+      else if (s < 140) range2++;
+      else if (s < 210) range3++;
+      else range4++;
     }
 
     final total = samples.length;

@@ -15,7 +15,8 @@ class AddVehicleScreen extends StatefulWidget {
 class _AddVehicleScreenState extends State<AddVehicleScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<String> _suggestions = [];
-
+  String? _selectedMake;
+  String? _selectedModel;
 
   @override
   Widget build(BuildContext context) {
@@ -130,7 +131,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
   void _addVehicleFromSuggestion(String suggestion) {
     final parts = suggestion.split(' ');
-    final make  = parts[0];
+    final make = parts[0];
     final model = parts.sublist(1).join(' ');
     
     final vehicle = Vehicle(

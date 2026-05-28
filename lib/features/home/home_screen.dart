@@ -1,6 +1,7 @@
 // home_screen.dart — ThrottleIQ navigation shell.
 
 import 'package:flutter/material.dart';
+import '../../models/drive_mode.dart';
 import '../../widgets/animated_bg.dart';
 import '../../widgets/hud_strip.dart';
 import '../../widgets/bottom_nav_bar.dart';

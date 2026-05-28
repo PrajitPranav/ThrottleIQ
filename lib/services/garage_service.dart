@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/vehicle.dart';
+import '../models/trip.dart';
 import '../models/drive_mode.dart';
 import 'trip_storage_service.dart';
 
@@ -40,7 +41,9 @@ class GarageService extends ChangeNotifier {
 
   Future<void> addVehicle(Vehicle vehicle) async {
     _vehicles.add(vehicle);
-    _activeVehicleId ??= vehicle.id;
+    if (_activeVehicleId == null) {
+      _activeVehicleId = vehicle.id;
+    }
     await _save();
     notifyListeners();
   }
