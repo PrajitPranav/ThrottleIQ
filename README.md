@@ -53,7 +53,6 @@ The application transforms a smartphone into a powerful automotive telemetry sys
 * Theme settings
 * Unit conversion (KM/H ↔ MPH)
 * Notification preferences
-* App personalization
 
 ### 💾 Persistent Storage
 
