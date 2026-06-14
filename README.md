@@ -4,7 +4,7 @@
 
 The application transforms a smartphone into a powerful automotive telemetry system capable of tracking speed, distance, routes, trip statistics, and driving behavior.
 
----
+
 
 ## ✨ Features
 
