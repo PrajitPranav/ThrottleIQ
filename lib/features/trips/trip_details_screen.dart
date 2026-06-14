@@ -7,6 +7,7 @@ import '../../services/settings_service.dart';
 import '../../services/trip_storage_service.dart';
 import '../../widgets/speed_distribution_widget.dart';
 import '../../widgets/eta_comparison_card.dart';
+import '../../widgets/trip_summary_card.dart';
 
 class TripDetailsScreen extends StatelessWidget {
   final Trip trip;
@@ -202,6 +203,11 @@ class TripDetailsScreen extends StatelessWidget {
                       _detailStat('SCORE', trip.tripScore.toString(), 'PTS'),
                     ],
                   ),
+                  const SizedBox(height: 40),
+
+                  // ── NEW: TripRank-Inspired Premium Summary Card ──
+                  TripSummaryCard(trip: trip),
+
                   const SizedBox(height: 60),
                 ],
               ),

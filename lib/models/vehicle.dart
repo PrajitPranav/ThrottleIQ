@@ -5,13 +5,32 @@ class Vehicle {
   final String make;
   final String model;
   final String? imagePath;
+  // Manual stat overrides (added by user in Garage)
+  final double manualDistanceKm;
+  final double manualTopSpeedKmh;
 
   Vehicle({
     required this.id,
     required this.make,
     required this.model,
     this.imagePath,
+    this.manualDistanceKm = 0.0,
+    this.manualTopSpeedKmh = 0.0,
   });
+
+  Vehicle copyWith({
+    double? manualDistanceKm,
+    double? manualTopSpeedKmh,
+  }) {
+    return Vehicle(
+      id: id,
+      make: make,
+      model: model,
+      imagePath: imagePath,
+      manualDistanceKm: manualDistanceKm ?? this.manualDistanceKm,
+      manualTopSpeedKmh: manualTopSpeedKmh ?? this.manualTopSpeedKmh,
+    );
+  }
 
   String get displayName => '$make $model';
 
@@ -21,6 +40,8 @@ class Vehicle {
       'make': make,
       'model': model,
       'imagePath': imagePath,
+      'manualDistanceKm': manualDistanceKm,
+      'manualTopSpeedKmh': manualTopSpeedKmh,
     };
   }
 
@@ -30,6 +51,8 @@ class Vehicle {
       make: map['make'],
       model: map['model'],
       imagePath: map['imagePath'],
+      manualDistanceKm: (map['manualDistanceKm'] as num?)?.toDouble() ?? 0.0,
+      manualTopSpeedKmh: (map['manualTopSpeedKmh'] as num?)?.toDouble() ?? 0.0,
     );
   }
 

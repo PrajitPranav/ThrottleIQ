@@ -95,7 +95,7 @@ class GarageScreen extends StatelessWidget {
         final stats = garage.getVehicleStats(vehicle.id);
 
         return GestureDetector(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => VehicleDetailsScreen(vehicle: vehicle))),
+          onTap: () => _showStatsSheet(context, garage, vehicle, isActive, stats),
           child: Container(
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
@@ -103,72 +103,53 @@ class GarageScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: isActive ? const Color(0xFFF97316).withValues(alpha: 0.3) : const Color(0xFF16161A)),
             ),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 48, height: 48,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF101014),
-                          borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48, height: 48,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF101014),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.directions_car_rounded, color: isActive ? const Color(0xFFF97316) : const Color(0xFF5A5A64)),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          vehicle.make.toUpperCase(),
+                          style: GoogleFonts.inter(fontSize: 8, fontWeight: FontWeight.w700, color: const Color(0xFF5A5A64), letterSpacing: 1.0),
                         ),
-                        child: Icon(Icons.directions_car_rounded, color: isActive ? const Color(0xFFF97316) : const Color(0xFF5A5A64)),
+                        Text(
+                          vehicle.model,
+                          style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.white, letterSpacing: -0.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isActive)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF97316).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              vehicle.make.toUpperCase(),
-                              style: GoogleFonts.inter(fontSize: 8, fontWeight: FontWeight.w700, color: const Color(0xFF5A5A64), letterSpacing: 1.0),
-                            ),
-                            Text(
-                              vehicle.model,
-                              style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.white, letterSpacing: -0.5),
-                            ),
-                          ],
-                        ),
+                      child: Text(
+                        'ACTIVE',
+                        style: GoogleFonts.inter(fontSize: 8, fontWeight: FontWeight.w900, color: const Color(0xFFF97316)),
                       ),
-                      if (isActive)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF97316).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'ACTIVE',
-                            style: GoogleFonts.inter(fontSize: 8, fontWeight: FontWeight.w900, color: const Color(0xFFF97316)),
-                          ),
-                        )
-                      else
-                        TextButton(
-                          onPressed: () => garage.selectVehicle(vehicle.id),
-                          child: Text('SELECT', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF5A5A64))),
-                        ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF101014),
-                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _smallStat('TRIPS', stats['totalTrips'].toString()),
-                      _smallStat('DISTANCE', '${(stats['totalDistanceKm'] as double).toStringAsFixed(1)} KM'),
-                      _smallStat('AVG SPEED', '${(stats['avgSpeedKmh'] as double).toStringAsFixed(0)} KM/H'),
-                    ],
-                  ),
-                ),
-              ],
+                    )
+                  else
+                    TextButton(
+                      onPressed: () => garage.selectVehicle(vehicle.id),
+                      child: Text('SELECT', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF5A5A64))),
+                    ),
+                ],
+              ),
             ),
           ),
         );
@@ -176,14 +157,151 @@ class GarageScreen extends StatelessWidget {
     );
   }
 
-  Widget _smallStat(String label, String value) {
+  void _showStatsSheet(
+    BuildContext context,
+    GarageService garage,
+    Vehicle vehicle,
+    bool isActive,
+    Map<String, dynamic> stats,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF0D0D10),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(
+            top: BorderSide(color: Color(0xFF1E1E22)),
+            left: BorderSide(color: Color(0xFF1E1E22)),
+            right: BorderSide(color: Color(0xFF1E1E22)),
+          ),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFF2C2C32),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Vehicle identity
+            Row(
+              children: [
+                Container(
+                  width: 44, height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF101014),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.directions_car_rounded,
+                      color: isActive ? const Color(0xFFF97316) : const Color(0xFF5A5A64), size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        vehicle.make.toUpperCase(),
+                        style: GoogleFonts.inter(fontSize: 8, fontWeight: FontWeight.w700, color: const Color(0xFF5A5A64), letterSpacing: 1.0),
+                      ),
+                      Text(
+                        vehicle.model,
+                        style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w500, color: Colors.white, letterSpacing: -0.5),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isActive)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF97316).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text('ACTIVE',
+                      style: GoogleFonts.inter(fontSize: 8, fontWeight: FontWeight.w900, color: const Color(0xFFF97316))),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            // Stats row
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF101014),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF1E1E22)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _sheetStat('TRIPS', stats['totalTrips'].toString()),
+                  _sheetDivider(),
+                  _sheetStat('DISTANCE', '${(stats['totalDistanceKm'] as double).toStringAsFixed(1)} KM'),
+                  _sheetDivider(),
+                  _sheetStat('AVG SPEED', '${(stats['avgSpeedKmh'] as double).toStringAsFixed(0)} KM/H'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            // View full details button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF101014),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(color: Color(0xFF2C2C32)),
+                  ),
+                  elevation: 0,
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => VehicleDetailsScreen(vehicle: vehicle),
+                  ));
+                },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('VIEW FULL DETAILS',
+                      style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.5, color: Colors.white)),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.white),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sheetStat(String label, String value) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(label, style: GoogleFonts.inter(fontSize: 7, fontWeight: FontWeight.w700, color: const Color(0xFF5A5A64), letterSpacing: 0.5)),
-        const SizedBox(height: 2),
-        Text(value, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white)),
+        const SizedBox(height: 4),
+        Text(value, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
       ],
     );
   }
+
+  Widget _sheetDivider() => Container(
+    width: 1, height: 28,
+    color: const Color(0xFF1E1E22),
+  );
 }

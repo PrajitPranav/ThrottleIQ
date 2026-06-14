@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/vehicle.dart';
-import '../models/trip.dart';
 import '../models/drive_mode.dart';
 import 'trip_storage_service.dart';
 
@@ -41,18 +40,16 @@ class GarageService extends ChangeNotifier {
 
   Future<void> addVehicle(Vehicle vehicle) async {
     _vehicles.add(vehicle);
-    if (_activeVehicleId == null) {
-      _activeVehicleId = vehicle.id;
-    }
+    _activeVehicleId ??= vehicle.id;
     await _save();
     notifyListeners();
   }
 
   Future<void> selectVehicle(String id) async {
     _activeVehicleId = id;
+    notifyListeners(); // Update UI immediately — don't wait on disk I/O
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_activeVehicleKey, id);
-    notifyListeners();
   }
 
   Future<void> _save() async {
@@ -64,17 +61,31 @@ class GarageService extends ChangeNotifier {
     }
   }
 
+  // Update manual stat overrides for a vehicle
+  Future<void> updateVehicleStats(String vehicleId, {double? distanceKm, double? topSpeedKmh}) async {
+    final idx = _vehicles.indexWhere((v) => v.id == vehicleId);
+    if (idx == -1) return;
+    _vehicles[idx] = _vehicles[idx].copyWith(
+      manualDistanceKm: distanceKm ?? _vehicles[idx].manualDistanceKm,
+      manualTopSpeedKmh: topSpeedKmh ?? _vehicles[idx].manualTopSpeedKmh,
+    );
+    await _save();
+    notifyListeners();
+  }
+
   // Aggregated Stats for a specific vehicle
   Map<String, dynamic> getVehicleStats(String vehicleId) {
+    final vehicle = _vehicles.firstWhere((v) => v.id == vehicleId, orElse: () => Vehicle(id: vehicleId, make: '', model: ''));
     final trips = TripStorageService().trips.where((t) => t.vehicleId == vehicleId).toList();
     
     if (trips.isEmpty) {
       return {
         'totalTrips': 0,
-        'totalDistanceKm': 0.0,
+        'totalDistanceKm': vehicle.manualDistanceKm,
         'avgSpeedKmh': 0.0,
-        'topSpeedKmh': 0.0,
+        'topSpeedKmh': vehicle.manualTopSpeedKmh,
         'totalDurationMinutes': 0,
+        'favoriteMode': null,
       };
     }
 
@@ -101,9 +112,9 @@ class GarageService extends ChangeNotifier {
 
     return {
       'totalTrips': trips.length,
-      'totalDistanceKm': totalDist,
+      'totalDistanceKm': totalDist + vehicle.manualDistanceKm,
       'avgSpeedKmh': avgSpeed,
-      'topSpeedKmh': topSpeed,
+      'topSpeedKmh': vehicle.manualTopSpeedKmh > topSpeed ? vehicle.manualTopSpeedKmh : topSpeed,
       'totalDurationMinutes': totalDuration,
       'favoriteMode': favoriteMode,
     };

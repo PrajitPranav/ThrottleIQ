@@ -60,11 +60,11 @@ class ProfileScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(children: const [
-                _StatChip('STREAK',         '7 DAYS',    Icons.local_fire_department, Color(0xFF8F3232)),
+                _StatChip('STREAK',         '12 DAYS',    Icons.local_fire_department, Color(0xFF8F3232)),
                 SizedBox(width: 12),
                 _StatChip('BEST SCORE',     '98 / 100',  Icons.star_rounded,         Color(0xFF5A7D65)),
                 SizedBox(width: 12),
-                _StatChip('RANK',           '#14',       Icons.leaderboard_rounded,  Color(0xFF4F6B8F)),
+                _StatChip('RANK',           '#1',       Icons.leaderboard_rounded,  Color(0xFF4F6B8F)),
               ]),
             ),
 
@@ -90,10 +90,10 @@ class ProfileScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(children: [
-                const _LbRow(rank: 1,  name: 'PHANTOM',  score: '98', rankColor: Color(0xFFD4AF37)),
-                const _LbRow(rank: 2,  name: 'STEALTH',  score: '96', rankColor: Color(0xFF9E9E9E)),
-                const _LbRow(rank: 3,  name: 'APEX',     score: '94', rankColor: Color(0xFFCD7F32)),
-                _LbRow(rank: 14, name: profile.userName.toUpperCase(), score: '87', rankColor: const Color(0xFF4F6B8F), isYou: true),
+                const _LbRow(rank: 1,  name: 'PRAJIT PRANAV',  score: '98', rankColor: Color(0xFFD4AF37), isYou: true),
+                const _LbRow(rank: 2,  name: 'MITHUN CHAKRAVARTHY',  score: '96', rankColor: Color(0xFF9E9E9E)),
+                const _LbRow(rank: 3,  name: 'RENNY SHERWIN',     score: '94', rankColor: Color(0xFFCD7F32)),
+                const _LbRow(rank: 4,  name: 'KARTHICK', score: '87', rankColor: const Color(0xFF4F6B8F)),
               ]),
             ),
 
