@@ -91,10 +91,7 @@ lib/
 
 ## 🛠️ Technologies Used
 
-### Frontend
 
-* Flutter
-* Dart
 
 ### Maps & Location
 
