@@ -61,7 +61,7 @@ The application transforms a smartphone into a powerful automotive telemetry sys
 * User preferences persistence
 * Analytics preservation between app launches
 
----
+
 
 ## 🏗️ Project Architecture
 
