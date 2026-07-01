@@ -1,5 +1,3 @@
-// main.dart — ThrottleIQ app entry point.
-// Keeps this file minimal: just boot configuration and MaterialApp setup.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
