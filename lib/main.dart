@@ -11,7 +11,7 @@ import 'services/garage_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Load saved data before UI rendering
+  
   await Future.wait([
     TripStorageService().loadTrips(),
     SettingsService().loadSettings(),
@@ -25,7 +25,7 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Transparent status bar so it blends seamlessly with the black background
+  
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor:          Colors.transparent,
