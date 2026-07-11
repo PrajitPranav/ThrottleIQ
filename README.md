@@ -13,7 +13,6 @@ The application transforms a smartphone into a powerful automotive telemetry sys
 * Live vehicle speed monitoring
 * High-accuracy GPS tracking
 * Real-time location updates
-* Live route recording
 
 ### 🏁 Premium Analog Speedometer
 
